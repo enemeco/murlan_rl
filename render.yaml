@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: murlan-rl
+    env: docker
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: MURLAN_MODEL_PATH
+        value: checkpoints/murlan_policy.pt

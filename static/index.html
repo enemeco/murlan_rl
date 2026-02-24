@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Murlan vs 3 RL Bots</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; max-width: 1000px; }
+    .row { display: flex; gap: 24px; flex-wrap: wrap; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; }
+    button { padding: 8px 10px; margin: 4px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .muted { color: #666; }
+    .hand { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  </style>
+</head>
+<body>
+  <h1>Murlan vs 3 RL Bots</h1>
+  <p class="muted">Minimal UI. Actions are rank-only (suits don't matter except forced 3♠ on first move).</p>
+
+  <div class="row">
+    <div class="card" style="flex: 1 1 480px;">
+      <h3>Game</h3>
+      <div id="meta"></div>
+      <div id="trick"></div>
+      <div id="scores"></div>
+      <div id="sizes"></div>
+    </div>
+
+    <div class="card" style="flex: 1 1 480px;">
+      <h3>Your hand</h3>
+      <div id="hand" class="hand"></div>
+      <h3>Legal actions</h3>
+      <div id="actions"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 16px;">
+    <button id="new">New game</button>
+    <span id="status" class="muted"></span>
+  </div>
+
+<script>
+let game = null;
+function el(id){ return document.getElementById(id); }
+const RANKS = ["3","4","5","6","7","8","9","10","J","Q","K","A","2","BJ","RJ"];
+
+function rankNameFromIndex(i){
+  if(i === null || i === undefined) return "?";
+  return RANKS[i] ?? "?";
+}
+function render(state){
+  game = state;
+  el('meta').innerHTML = `Phase: <b>${state.phase}</b> | Current player: <b>${state.current_player}</b> | You: <b>${state.human_seat}</b> | Your turn: <b>${state.your_turn}</b>`;
+
+	if (state.trick) {
+	  const kind = state.trick.kind;
+	  const size = state.trick.size;
+
+	  // backend currently sends primary_rank as the rank index (0..14)
+	  const v = (state.trick.primary_rank_i ?? state.trick.primary_rank ?? state.trick.value);
+	  const r = rankNameFromIndex(v);
+
+	  let shown = "";
+
+	  if (kind === "single") shown = `${r}`;
+	  else if (kind === "pair") shown = `${r} ${r}`;
+	  else if (kind === "triple") shown = `${r} ${r} ${r}`;
+	  else if (kind === "quad") shown = `${r} ${r} ${r} ${r}`;
+	  else if (kind === "straight") {
+		// If backend ever provides ranks, use them:
+		if (Array.isArray(state.trick.ranks) && state.trick.ranks.length) {
+		  shown = state.trick.ranks.join(" ");
+		} else if (Number.isInteger(v) && Number.isInteger(size)) {
+		  // Reconstruct a normal straight that ends at v
+		  // (Not perfect for the special A-2-3-4-5 case, but works for all other straights)
+		  const start = v - (size - 1);
+		  const seq = [];
+		  for (let i = start; i <= v; i++) seq.push(rankNameFromIndex(i));
+		  shown = seq.join(" ");
+		} else {
+		  shown = "STRAIGHT";
+		}
+	  } else {
+		shown = `${kind.toUpperCase()}(${r})`;
+	  }
+
+	  el('trick').innerHTML = `On table: <b>${shown}</b>`;
+	} else {
+	  el('trick').innerHTML = `On table: <b>none</b>`;
+	}
+
+  el('scores').innerHTML = `Scores: ${state.scores.join(' | ')} (target ${state.goal_target})`;
+  el('sizes').innerHTML = `Cards in hand: ${state.hand_sizes.join(' | ')}`;
+
+  el('hand').textContent = state.your_hand.join('  ');
+
+  const actionsDiv = el('actions');
+  actionsDiv.innerHTML = '';
+
+  if(state.done){
+    el('status').textContent = 'Game over.';
+    return;
+  }
+  if(!state.your_turn){
+    el('status').textContent = 'Waiting for bots...';
+    return;
+  }
+
+  el('status').textContent = '';
+  state.legal_actions.forEach((a, idx) => {
+    const name = state.legal_action_names[idx];
+    const btn = document.createElement('button');
+    btn.textContent = `${a}: ${name}`;
+    btn.onclick = async () => {
+      btn.disabled = true;
+      const res = await fetch(`/api/act/${state.game_id}`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:a})
+      });
+      render(await res.json());
+    };
+    actionsDiv.appendChild(btn);
+  });
+}
+
+async function newGame(){
+  el('status').textContent = 'Starting...';
+  const res = await fetch('/api/new', {method:'POST'});
+  render(await res.json());
+}
+
+el('new').onclick = newGame;
+newGame();
+</script>
+</body>
+</html>
