@@ -7,7 +7,10 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-
+import os
+import threading
+import time
+import requests
 from .game_manager import GameManager, MurlanBot
 from .online_learning import OnlineLearner
 
@@ -42,3 +45,29 @@ def state(gid: str):
 @app.post("/api/act/{gid}")
 def act(gid: str, req: ActRequest):
     return manager.human_act(gid, req.action)
+
+
+# ... your existing imports and code ...
+
+def keep_alive():
+    """Keep the Render app awake by pinging itself every 13 minutes"""
+    time.sleep(30)
+
+    app_url = "https://murlan-rl.onrender.com/health"  # <-- better than "/"
+    while True:
+        try:
+            time.sleep(13 * 60)
+            r = requests.get(app_url, timeout=10)
+            print(f"Keep-alive ping: {r.status_code}")
+        except Exception as e:
+            print(f"Keep-alive error: {e}")
+
+@app.on_event("startup")
+def start_keep_alive_thread():
+    # optional: disable locally with ENABLE_KEEPALIVE=0
+    if os.getenv("ENABLE_KEEPALIVE", "1") == "1":
+        threading.Thread(target=keep_alive, daemon=True).start()
+        
+@app.get("/health")
+def health():
+    return {"ok": True}
