@@ -19,7 +19,7 @@ class OnlineLearner:
     - uses a shared lock with the bot so serving & training don't race
     """
 
-    def __init__(self, model, device: str = "cpu", lock=None, ckpt_path: str = "checkpoints/murlan_policy_live.pt"):
+    def __init__(self, model, device: str = "cpu", lock=None, ckpt_path: str = "checkpoints/murlan_policy.pt"):
         self.model = model
         self.device = device
         self.model_lock = lock
@@ -61,7 +61,7 @@ class OnlineLearner:
 
             self._updates += 1
 
-            if self._updates % 5 == 0:
+            if self._updates % 2 == 0:
                 if self.model_lock is None:
                     ckpt = {
                         "model": self.model.state_dict(),

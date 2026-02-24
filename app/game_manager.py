@@ -80,8 +80,12 @@ class GameManager:
         self.games: Dict[str, GameSession] = {}
 
     def new_game(self, seed: Optional[int] = None, human_seat: int = 0) -> str:
-        env = MurlanEnv(seed=seed or 0)
+        if seed is None:
+            seed = secrets.randbits(32)   # seed random çdo lojë
+
+        env = MurlanEnv(seed=seed)
         env.reset(seed=seed)
+
         gid = secrets.token_urlsafe(16)
         self.games[gid] = GameSession(env=env, human_seat=human_seat, done=False, bot_traj=[])
         self._autoplay_until_human(gid)

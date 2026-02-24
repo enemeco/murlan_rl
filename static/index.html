@@ -1,138 +1,766 @@
 <!doctype html>
-<html lang="en">
+<html lang="sq">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Murlan vs 3 RL Bots</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Murlan</title>
+
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; max-width: 1000px; }
-    .row { display: flex; gap: 24px; flex-wrap: wrap; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; }
-    button { padding: 8px 10px; margin: 4px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .muted { color: #666; }
-    .hand { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    :root{
+      --bg: #0b1020;
+      --panel: rgba(255,255,255,.06);
+      --panel2: rgba(255,255,255,.08);
+      --border: rgba(255,255,255,.12);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.66);
+      --good: #3ddc84;
+      --warn: #ffcc66;
+      --bad:  #ff6b6b;
+      --accent: #7c5cff;
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
+    [data-theme="light"]{
+      --bg: #f6f7fb;
+      --panel: rgba(0,0,0,.04);
+      --panel2: rgba(0,0,0,.06);
+      --border: rgba(0,0,0,.10);
+      --text: rgba(0,0,0,.90);
+      --muted: rgba(0,0,0,.60);
+      --shadow: 0 12px 30px rgba(0,0,0,.12);
+    }
+
+    *{ box-sizing: border-box; }
+    body{
+      margin:0;
+      font-family: var(--sans);
+      background:
+        radial-gradient(1200px 600px at 10% 0%, rgba(124,92,255,.25), transparent 60%),
+        radial-gradient(900px 500px at 90% 20%, rgba(61,220,132,.18), transparent 55%),
+        radial-gradient(900px 500px at 50% 100%, rgba(255,204,102,.12), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .wrap{ max-width: 1120px; margin: 0 auto; padding: 18px 16px 28px; }
+    header{
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .title{
+      display:flex; align-items:center; gap:12px; min-width: 0;
+    }
+    .logo{
+      width: 40px; height: 40px; border-radius: 12px;
+      background: linear-gradient(135deg, rgba(124,92,255,.9), rgba(61,220,132,.85));
+      box-shadow: var(--shadow);
+      display:flex; align-items:center; justify-content:center;
+      font-weight: 800;
+    }
+    h1{
+      font-size: 18px; margin:0; line-height: 1.1;
+      letter-spacing: .2px;
+      white-space: nowrap; overflow:hidden; text-overflow: ellipsis;
+    }
+    .subtitle{
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap; overflow:hidden; text-overflow: ellipsis;
+    }
+
+    .top-actions{ display:flex; align-items:center; gap:10px; flex-wrap: wrap; justify-content:flex-end; }
+
+    .btn{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform .08s ease, background .12s ease, border-color .12s ease;
+      box-shadow: 0 6px 18px rgba(0,0,0,.12);
+      display:inline-flex; align-items:center; gap:8px;
+      font-weight: 600;
+      user-select:none;
+    }
+    .btn:hover{ background: var(--panel2); border-color: rgba(124,92,255,.35); }
+    .btn:active{ transform: translateY(1px); }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+
+    .btn.primary{
+      background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(124,92,255,.55));
+      border-color: rgba(124,92,255,.65);
+    }
+    .btn.primary:hover{ border-color: rgba(124,92,255,.85); }
+
+    .btn.danger{
+      background: linear-gradient(135deg, rgba(255,107,107,.9), rgba(255,107,107,.45));
+      border-color: rgba(255,107,107,.7);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 14px;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      backdrop-filter: blur(10px);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    .card h2{
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+
+    .row{
+      display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap;
+      margin: 8px 0;
+    }
+
+    .chips{ display:flex; gap:8px; flex-wrap: wrap; }
+    .chip{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .chip strong{ color: var(--text); font-weight: 700; }
+
+    .statusbar{
+      display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      font-size: 13px;
+    }
+    .dot{
+      width: 9px; height: 9px; border-radius: 999px;
+      background: var(--muted);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.05);
+    }
+    .dot.good{ background: var(--good); }
+    .dot.warn{ background: var(--warn); }
+    .dot.bad{  background: var(--bad); }
+
+    .sep{ height: 1px; background: var(--border); margin: 12px 0; }
+
+    .trick{
+      display:flex; flex-direction: column; gap: 8px;
+    }
+    .trick-cards{
+      display:flex; gap: 8px; flex-wrap: wrap;
+    }
+    .playcard{
+      min-width: 42px;
+      padding: 10px 10px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      font-family: var(--mono);
+      font-weight: 800;
+      letter-spacing: .2px;
+      text-align:center;
+      box-shadow: 0 10px 22px rgba(0,0,0,.18);
+    }
+
+    .scoregrid{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    @media (max-width: 520px){
+      .scoregrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    .scorebox{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 10px;
+    }
+    .scorebox .who{ color: var(--muted); font-size: 12px; }
+    .scorebox .pts{ font-size: 18px; font-weight: 900; margin-top: 3px; }
+    .bar{
+      height: 8px; border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      overflow:hidden; margin-top: 8px;
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .bar > div{
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(124,92,255,.9), rgba(61,220,132,.85));
+      transition: width .25s ease;
+    }
+
+    .hand{
+      display:flex; flex-wrap: wrap; gap: 8px;
+      font-family: var(--mono);
+      margin-top: 8px;
+    }
+    .hand .playcard{
+      cursor: default;
+      background: rgba(255,255,255,.05);
+    }
+
+    .actions{
+      display:flex; flex-direction: column; gap: 8px;
+      margin-top: 8px;
+    }
+    .action-row{
+      display:flex; gap: 10px; flex-wrap: wrap; align-items:center;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      border-radius: 14px;
+      padding: 10px;
+    }
+    .action-meta{
+      flex: 1 1 auto;
+      min-width: 220px;
+    }
+    .action-meta .name{
+      font-weight: 800;
+      display:flex; gap:10px; flex-wrap: wrap; align-items:center;
+    }
+    .badge{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+    .action-meta .desc{
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+    .action-btns{
+      display:flex; gap:8px; flex-wrap: wrap;
+    }
+
+    .log{
+      margin-top: 10px;
+      max-height: 210px;
+      overflow:auto;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,.03);
+      padding: 10px;
+    }
+    .log p{
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .log p:last-child{ margin-bottom: 0; }
+    .log .t{ color: var(--text); }
+
+    dialog{
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(20,24,38,.92);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      max-width: 720px;
+      width: calc(100% - 20px);
+      padding: 0;
+    }
+    [data-theme="light"] dialog{
+      background: rgba(255,255,255,.96);
+    }
+    dialog::backdrop{ background: rgba(0,0,0,.55); }
+    .modal{
+      padding: 14px;
+    }
+    .modal h3{ margin: 4px 0 10px; }
+    .modal .muted{ color: var(--muted); font-size: 13px; }
+    .modal ul{ margin: 8px 0 0 18px; color: var(--muted); }
+    .modal li{ margin: 6px 0; }
+    .modal .footer{ display:flex; justify-content:flex-end; gap:10px; margin-top: 12px; }
+
+    .mini{
+      font-size: 12px; color: var(--muted);
+    }
   </style>
 </head>
+
 <body>
-  <h1>Murlan vs 3 RL Bots</h1>
-  <p class="muted">Minimal UI. Actions are rank-only (suits don't matter except forced 3♠ on first move).</p>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <div class="logo">M</div>
+        <div style="min-width:0">
+          <h1>Murlan — Luaj kundër 3 agjentëve që përmirësohen vazhdimisht</h1>
+        </div>
+      </div>
 
-  <div class="row">
-    <div class="card" style="flex: 1 1 480px;">
-      <h3>Game</h3>
-      <div id="meta"></div>
-      <div id="trick"></div>
-      <div id="scores"></div>
-      <div id="sizes"></div>
-    </div>
+      <div class="top-actions">
+        <button class="btn" id="rulesBtn" title="Rregullat">📜 Rregullat</button>
+        <button class="btn" id="themeBtn" title="Ndrysho temën">🌙/☀️ Tema</button>
+        <button class="btn primary" id="newBtn" title="Fillim i ri (N)">🂠 Lojë e re</button>
+      </div>
+    </header>
 
-    <div class="card" style="flex: 1 1 480px;">
-      <h3>Your hand</h3>
-      <div id="hand" class="hand"></div>
-      <h3>Legal actions</h3>
-      <div id="actions"></div>
+    <div class="grid">
+      <section class="card">
+        <h2>Gjendja e lojës</h2>
+
+        <div class="row chips" id="metaChips"></div>
+
+        <div class="sep"></div>
+
+        <div class="trick">
+          <div class="row" style="margin:0">
+            <div class="pill" id="turnPill">
+              <span class="dot" id="turnDot"></span>
+              <span id="turnText">—</span>
+            </div>
+            <div class="pill">
+              🎯 Qëllimi: <strong id="goal">—</strong>
+            </div>
+          </div>
+
+          <div class="row" style="margin:0">
+            <div class="mini">Në tavolinë</div>
+            <div class="mini" id="trickLabel">—</div>
+          </div>
+          <div class="trick-cards" id="trickCards"></div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="row" style="margin:0">
+          <div class="mini">Pikët</div>
+          <div class="mini" id="scoreHint">—</div>
+        </div>
+
+        <div class="scoregrid" id="scoreGrid"></div>
+
+        <div class="sep"></div>
+
+        <div class="row" style="margin:0">
+          <div class="mini">Historia (veprimet e fundit)</div>
+          <div class="mini">Këshillë: N = lojë e re</div>
+        </div>
+        <div class="log" id="log"></div>
+      </section>
+
+      <section class="card">
+        <h2>Dora jote</h2>
+        <div class="row" style="margin:0">
+          <div class="pill">🧑 Ti: <strong id="youSeat">—</strong></div>
+          <div class="pill">🃏 Letrat: <strong id="yourCount">—</strong></div>
+        </div>
+
+        <div class="hand" id="hand"></div>
+
+        <div class="sep"></div>
+
+        <h2>Veprimet e lejuara</h2>
+        <div class="mini" id="actionHelp">—</div>
+        <div class="actions" id="actions"></div>
+
+        <div class="sep"></div>
+        <div class="row" style="margin:0">
+          <div class="pill" id="netPill">
+            <span class="dot warn" id="netDot"></span>
+            <span id="status">Duke nisur…</span>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 
-  <div class="card" style="margin-top: 16px;">
-    <button id="new">New game</button>
-    <span id="status" class="muted"></span>
-  </div>
+  <dialog id="rulesDlg">
+    <div class="modal">
+      <h3>Rregullat (shkurt)</h3>
+      <div class="muted">
+        Përmbledhje praktike (nga dokumenti yt). Nëse do, e bëjmë edhe “Help” më të gjatë brenda UI-së.
+      </div>
+      <ul>
+        <li>4 lojtarë. Qëllimi: të mbetesh i pari pa letra. Pikë për dorë: 3,2,1,0.</li>
+        <li>Fiton kush arrin i pari në target (21; pastaj 31/41/51 nëse barazohet).</li>
+        <li>Renditja e rangjeve: 3 … A, 2, BJ, RJ.</li>
+        <li>Kombot: teke, dyshe, treshe, katërshe, shkallë (≥5). A dhe 2 përdoren “low” vetëm në shkallë (A-2-3-4-5).</li>
+        <li>Dora e parë nis me 3♠ (i detyruar ta hedhë).</li>
+        <li>Duhet të hedhësh të njëjtin lloj dhe numër letrash si në tavolinë, me rang më të lartë; katërshet rrahin çdo gjë.</li>
+        <li>Nëse të gjithë “pass”, rihap ai që hodhi i fundit.</li>
+      </ul>
+      <div class="footer">
+        <button class="btn" id="closeRules">Mbyll</button>
+      </div>
+    </div>
+  </dialog>
 
 <script>
-let game = null;
-function el(id){ return document.getElementById(id); }
-const RANKS = ["3","4","5","6","7","8","9","10","J","Q","K","A","2","BJ","RJ"];
+  // ====== State ======
+  let game = null;
+  let lastRenderedGameId = null;
+  let lastTrickSig = null;
+  const logLines = [];
+  
+  // RANKS must match backend rank indices 0..14
+  const RANKS = ["3","4","5","6","7","8","9","10","J","Q","K","A","2","BJ","RJ"];
 
-function rankNameFromIndex(i){
-  if(i === null || i === undefined) return "?";
-  return RANKS[i] ?? "?";
-}
-function render(state){
-  game = state;
-  el('meta').innerHTML = `Phase: <b>${state.phase}</b> | Current player: <b>${state.current_player}</b> | You: <b>${state.human_seat}</b> | Your turn: <b>${state.your_turn}</b>`;
+  // ====== Helpers ======
+  const el = (id) => document.getElementById(id);
 
-	if (state.trick) {
-	  const kind = state.trick.kind;
-	  const size = state.trick.size;
+  function rankNameFromIndex(i){
+    if(i === null || i === undefined) return "?";
+    return RANKS[i] ?? "?";
+  }
 
-	  // backend currently sends primary_rank as the rank index (0..14)
-	  const v = (state.trick.primary_rank_i ?? state.trick.primary_rank ?? state.trick.value);
-	  const r = rankNameFromIndex(v);
+  function setTheme(next){
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('murlan_theme', next);
+  }
 
-	  let shown = "";
+  function toggleTheme(){
+    const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+    setTheme(cur === 'dark' ? 'light' : 'dark');
+  }
 
-	  if (kind === "single") shown = `${r}`;
-	  else if (kind === "pair") shown = `${r} ${r}`;
-	  else if (kind === "triple") shown = `${r} ${r} ${r}`;
-	  else if (kind === "quad") shown = `${r} ${r} ${r} ${r}`;
-	  else if (kind === "straight") {
-		// If backend ever provides ranks, use them:
-		if (Array.isArray(state.trick.ranks) && state.trick.ranks.length) {
-		  shown = state.trick.ranks.join(" ");
-		} else if (Number.isInteger(v) && Number.isInteger(size)) {
-		  // Reconstruct a normal straight that ends at v
-		  // (Not perfect for the special A-2-3-4-5 case, but works for all other straights)
-		  const start = v - (size - 1);
-		  const seq = [];
-		  for (let i = start; i <= v; i++) seq.push(rankNameFromIndex(i));
-		  shown = seq.join(" ");
-		} else {
-		  shown = "STRAIGHT";
-		}
-	  } else {
-		shown = `${kind.toUpperCase()}(${r})`;
-	  }
+  function pct(n, d){
+    if(!Number.isFinite(n) || !Number.isFinite(d) || d <= 0) return 0;
+    return Math.max(0, Math.min(100, (n/d)*100));
+  }
 
-	  el('trick').innerHTML = `On table: <b>${shown}</b>`;
-	} else {
-	  el('trick').innerHTML = `On table: <b>none</b>`;
+  function addLog(text, kind="info"){
+    const t = new Date();
+    const stamp = t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const prefix = kind === "you" ? "🧑" : kind === "bot" ? "🤖" : kind === "sys" ? "🧾" : "•";
+    logLines.unshift(`[${stamp}] ${prefix} ${text}`);
+    while(logLines.length > 14) logLines.pop();
+    el('log').innerHTML = logLines.map(x => `<p><span class="t">${escapeHtml(x)}</span></p>`).join('');
+  }
+
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function trickToCards(state){
+    if(!state.trick) return [];
+    const kind = state.trick.kind;
+    const size = state.trick.size;
+    const v = (state.trick.primary_rank_i ?? state.trick.primary_rank ?? state.trick.value);
+    const r = rankNameFromIndex(v);
+
+    if(kind === "single") return [r];
+    if(kind === "pair") return [r,r];
+    if(kind === "triple") return [r,r,r];
+    if(kind === "quad") return [r,r,r,r];
+
+    if(kind === "straight"){
+      if(Array.isArray(state.trick.ranks) && state.trick.ranks.length){
+        return state.trick.ranks.slice();
+      }
+      if(Number.isInteger(v) && Number.isInteger(size)){
+        const start = v - (size - 1);
+        const seq = [];
+        for(let i=start;i<=v;i++) seq.push(rankNameFromIndex(i));
+        return seq;
+      }
+      return ["S","T","R","A","I","G","H","T"].slice(0, Math.max(5, size || 5));
+    }
+
+    // fallback
+    return [`${kind.toUpperCase()}(${r})`];
+  }
+
+  function trickSignature(state){
+    if(!state.trick) return "none";
+    const kind = state.trick.kind ?? "";
+    const size = state.trick.size ?? "";
+    const v = (state.trick.primary_rank_i ?? state.trick.primary_rank ?? state.trick.value ?? "");
+    return `${kind}|${size}|${v}`;
+  }
+	function translateKind(kind){
+	  if(!kind) return kind;
+
+	  const k = String(kind).toLowerCase();
+
+	  if(k === "single") return "Tek";
+	  if(k === "pair") return "Dyshe";
+	  if(k === "triple") return "Treshe";
+	  if(k === "quad") return "Katërshe";
+	  if(k === "straight") return "Kolor";
+
+	  return kind; // fallback
 	}
+	function cardToPretty(card){
+	  if(!card) return { text: "", red:false };
 
-  el('scores').innerHTML = `Scores: ${state.scores.join(' | ')} (target ${state.goal_target})`;
-  el('sizes').innerHTML = `Cards in hand: ${state.hand_sizes.join(' | ')}`;
+	  // Joker-at
+		if(card === "BJ") return { text:"Xhol i zi", red:false };
+		if(card === "RJ") return { text:"Xhol i kuq", red:true };
 
-  el('hand').textContent = state.your_hand.join('  ');
+	  const rank = card.slice(0, -1);
+	  const suit = card.slice(-1);
 
-  const actionsDiv = el('actions');
-  actionsDiv.innerHTML = '';
+	  const suitMap = { "S":"♠", "H":"♥", "D":"♦", "C":"♣" };
+	  const red = (suit === "H" || suit === "D");
 
-  if(state.done){
-    el('status').textContent = 'Game over.';
-    return;
+	  return { text: `${rank}${suitMap[suit] || ""}`, red };
+	}
+  // ====== Rendering ======
+  function render(state){
+    game = state;
+
+    // Meta chips
+    const phase = state.phase ?? "—";
+    const curP = state.current_player ?? "—";
+    const you = state.human_seat ?? "—";
+    const yourTurn = !!state.your_turn;
+
+    el('youSeat').textContent = you;
+    el('goal').textContent = state.goal_target ?? "—";
+
+    const chips = [
+      `<span class="chip">Faza: <strong>${escapeHtml(phase)}</strong></span>`,
+      `<span class="chip">Rradha: <strong>Lojtari ${escapeHtml(curP)}</strong></span>`,
+      `<span class="chip">Ti: <strong>Lojtari ${escapeHtml(you)}</strong></span>`,
+      `<span class="chip">Tani: <strong>${yourTurn ? "Ti" : "Botët"}</strong></span>`,
+      `<span class="chip">ID: <strong>${escapeHtml(state.game_id ?? "—")}</strong></span>`,
+    ];
+    el('metaChips').innerHTML = chips.join('');
+
+    // Turn pill
+    const dot = el('turnDot');
+    const turnText = el('turnText');
+
+    if(state.done){
+      dot.className = "dot good";
+      turnText.textContent = "Loja mbaroi";
+    } else if(yourTurn){
+      dot.className = "dot good";
+      turnText.textContent = "Është radha jote";
+    } else {
+      dot.className = "dot warn";
+      turnText.textContent = "Duke pritur botët…";
+    }
+
+    // Trick
+    const cards = trickToCards(state);
+    el('trickCards').innerHTML = cards.length
+      ? cards.map(c => `<div class="playcard">${escapeHtml(c)}</div>`).join('')
+      : `<div class="mini" style="color:var(--muted)">Nuk ka asgjë në tavolinë.</div>`;
+
+	el('trickLabel').textContent = state.trick
+	  ? `${translateKind(state.trick.kind)} · ${state.trick.size ?? ""}`.trim()
+	  : "—";
+
+    // Hand
+    const yourHand = Array.isArray(state.your_hand) ? state.your_hand : [];
+    el('yourCount').textContent = yourHand.length;
+	el('hand').innerHTML = yourHand.length
+	  ? yourHand.map(x => {
+		  const c = cardToPretty(x);
+		  const cls = c.red ? "playcard red" : "playcard";
+		  return `<div class="${cls}">${escapeHtml(c.text)}</div>`;
+		}).join('')
+	  : `<div class="mini">S’ke letra.</div>`;
+
+    // Scores + hand sizes
+    const scores = Array.isArray(state.scores) ? state.scores : [0,0,0,0];
+    const sizes  = Array.isArray(state.hand_sizes) ? state.hand_sizes : [0,0,0,0];
+    const target = Number(state.goal_target ?? 21);
+
+    el('scoreHint').textContent = `Objektivi: ${target}`;
+
+    const scoreGrid = scores.map((sc, i) => {
+      const progress = pct(Number(sc), target);
+      const who = (i == you) ? `Lojtari ${i} (TI)` : `Lojtari ${i}`;
+      const sizeTxt = sizes[i] ?? "—";
+      return `
+        <div class="scorebox">
+          <div class="who">${escapeHtml(who)} · 🃏 ${escapeHtml(sizeTxt)}</div>
+          <div class="pts">${escapeHtml(sc)}</div>
+          <div class="bar"><div style="width:${progress.toFixed(1)}%"></div></div>
+        </div>
+      `;
+    }).join('');
+    el('scoreGrid').innerHTML = scoreGrid;
+
+    // Actions
+    const actionsDiv = el('actions');
+    actionsDiv.innerHTML = '';
+
+    if(state.done){
+      el('netDot').className = "dot good";
+      el('status').textContent = "Loja mbaroi.";
+      el('actionHelp').textContent = "Shtyp “Lojë e re” për të filluar nga e para.";
+      return;
+    }
+
+    if(!yourTurn){
+      el('netDot').className = "dot warn";
+      el('status').textContent = "Botët po luajnë…";
+      el('actionHelp').textContent = "Kur të vijë radha jote, do shfaqen veprimet e lejuara.";
+      return;
+    }
+
+    el('netDot').className = "dot good";
+    el('status').textContent = "Zgjidh një veprim.";
+    el('actionHelp').textContent = "Sugjerim: “Pass” është i vlefshëm kur s’do/ s’mund të hedhësh.";
+
+    const legal = Array.isArray(state.legal_actions) ? state.legal_actions : [];
+    const names = Array.isArray(state.legal_action_names) ? state.legal_action_names : [];
+
+    if(legal.length === 0){
+      actionsDiv.innerHTML = `<div class="mini">Nuk ka veprime të lejuara (kjo s’duhet të ndodhë shpesh).</div>`;
+      return;
+    }
+
+    legal.forEach((a, idx) => {
+	let nm = names[idx] ?? String(a);
+
+	// përkthe SINGLE/PAIR/TRIPLE/STRAIGHT etj.
+	nm = nm
+	  .replace("SINGLE", "Tek")
+	  .replace("SWAP_GIVE","Jepi")
+	  .replace("PAIR", "Dyshe")
+	  .replace("BJ", "Xhol i zi")
+	  .replace("RJ", "Xhol i kuq")
+	  .replace("TRIPLE", "Treshe")
+	  .replace("QUAD", "Katërshe")
+	  .replace("STRAIGHT", "Kolor");
+      const isPass = String(nm).toLowerCase().includes("pass") || String(nm).toLowerCase().includes("kaloj");
+      const label = isPass ? "KALO (PASS)" : nm;
+
+      const row = document.createElement('div');
+      row.className = "action-row";
+
+      const meta = document.createElement('div');
+      meta.className = "action-meta";
+      meta.innerHTML = `
+        <div class="name">
+          <span>${escapeHtml(label)}</span>
+        </div>
+        <div class="desc">${isPass ? "Nuk hedh asgjë këtë radhë." : "Hedh kombinimin e treguar."}</div>
+      `;
+
+      const btns = document.createElement('div');
+      btns.className = "action-btns";
+
+      const btn = document.createElement('button');
+      btn.className = isPass ? "btn danger" : "btn";
+      btn.textContent = isPass ? "🚫 Kalo" : "▶ Luaj";
+      btn.onclick = async () => {
+        btn.disabled = true;
+        try{
+          addLog(`Zgjodhe: ${label}`, "you");
+          const res = await fetch(`/api/act/${state.game_id}`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({action:a})
+          });
+          const next = await res.json();
+          render(next);
+
+          // Log ndryshimin e tavolinës
+          const sig = trickSignature(next);
+          if(sig !== lastTrickSig){
+            lastTrickSig = sig;
+            if(next.trick){
+              const shown = trickToCards(next).join(" ");
+              addLog(`Në tavolinë: ${shown}`, "sys");
+            } else {
+              addLog(`Tavolina u pastrua (të gjithë kaluan).`, "sys");
+            }
+          }
+        } catch(e){
+          addLog(`Gabim në kërkesë: ${e?.message ?? e}`, "sys");
+          btn.disabled = false;
+        }
+      };
+
+      btns.appendChild(btn);
+      row.appendChild(meta);
+      row.appendChild(btns);
+      actionsDiv.appendChild(row);
+    });
+
+    // Log start / game changes
+    if(state.game_id !== lastRenderedGameId){
+      lastRenderedGameId = state.game_id;
+      lastTrickSig = trickSignature(state);
+      addLog(`U nis lojë e re. (ID: ${state.game_id})`, "sys");
+    }
   }
-  if(!state.your_turn){
-    el('status').textContent = 'Waiting for bots...';
-    return;
+
+  // ====== Network ======
+  async function newGame(){
+    el('netDot').className = "dot warn";
+    el('status').textContent = "Po nis lojë e re…";
+    try{
+      const res = await fetch('/api/new', {method:'POST'});
+      const st = await res.json();
+      render(st);
+    } catch(e){
+      el('netDot').className = "dot bad";
+      el('status').textContent = "S’u lidh dot me serverin.";
+      addLog(`S’u nis loja: ${e?.message ?? e}`, "sys");
+    }
   }
 
-  el('status').textContent = '';
-  state.legal_actions.forEach((a, idx) => {
-    const name = state.legal_action_names[idx];
-    const btn = document.createElement('button');
-    btn.textContent = `${a}: ${name}`;
-    btn.onclick = async () => {
-      btn.disabled = true;
-      const res = await fetch(`/api/act/${state.game_id}`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({action:a})
-      });
-      render(await res.json());
-    };
-    actionsDiv.appendChild(btn);
+  // ====== UI bindings ======
+  el('newBtn').onclick = newGame;
+  el('themeBtn').onclick = toggleTheme;
+
+  const dlg = el('rulesDlg');
+  el('rulesBtn').onclick = () => dlg.showModal();
+  el('closeRules').onclick = () => dlg.close();
+
+  // Keyboard shortcut: N
+  window.addEventListener('keydown', (e) => {
+    if(e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey){
+      e.preventDefault();
+      newGame();
+    }
+    if(e.key === 'Escape' && dlg.open) dlg.close();
   });
-}
 
-async function newGame(){
-  el('status').textContent = 'Starting...';
-  const res = await fetch('/api/new', {method:'POST'});
-  render(await res.json());
-}
+  // Theme init
+  (function initTheme(){
+    const saved = localStorage.getItem('murlan_theme');
+    if(saved === 'light' || saved === 'dark') setTheme(saved);
+    else setTheme('dark');
+  })();
 
-el('new').onclick = newGame;
-newGame();
+  // Start
+  newGame();
 </script>
 </body>
 </html>
