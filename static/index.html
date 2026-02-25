@@ -309,6 +309,26 @@
     .mini{
       font-size: 12px; color: var(--muted);
     }
+  
+    /* ===== Verified Albanian quotes ===== */
+    .quoteText{
+      font-size: 18px;
+      line-height: 1.45;
+      font-style: italic;
+      white-space: pre-wrap;
+    }
+    .quoteAuthor{
+      margin-top: 10px;
+      font-weight: 700;
+    }
+    .quoteRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top: 10px;
+    }
+
   </style>
 </head>
 
@@ -371,7 +391,9 @@
           <div class="mini">Këshillë: N = lojë e re</div>
         </div>
         <div class="log" id="log"></div>
+      
       </section>
+
 
       <section class="card">
         <h2>Dora jote</h2>
@@ -396,6 +418,13 @@
           </div>
         </div>
       </section>
+      <section class="card" id="quoteCard">
+        <h2>Shprehje</h2>
+        <div class="quoteText" id="quoteText">—</div>
+        <div class="quoteAuthor" id="quoteAuthor">—</div>
+
+
+      </section>	  
     </div>
   </div>
 
@@ -736,6 +765,30 @@
     }
   }
 
+  
+  // ====== Quotes (verified online) ======
+  const QUOTES = [{"id": 1, "author": "Ag Apolloni", "text": "Unë e doja, por e doja ashtu si e kisha në kokë, jo ashtu si e kisha në dhomë.", "source": "https://sq.wikiquote.org/wiki/Ag_Apolloni"}, {"id": 2, "author": "Ag Apolloni", "text": "Oh, sa i rëndësishëm ndihej atje në majë! Se sa i rëndë e sa i rëndësishëm ishte, mund ta tregonte rënia e tij. Njerëzit e papeshë nuk bien.", "source": "https://sq.wikiquote.org/wiki/Ag_Apolloni"}, {"id": 3, "author": "Ag Apolloni", "text": "Nga zjarri i gënjeshtrës na ka mbetur vetëm hiri i dëshpërimit.", "source": "https://sq.wikiquote.org/wiki/Ag_Apolloni"}, {"id": 4, "author": "Ag Apolloni", "text": "Kur lumturia është fizike, ndërsa dhimbja metafizike, dyert e shtëpisë duhet të bëhen dyer të drejtësisë.", "source": "https://sq.wikiquote.org/wiki/Ag_Apolloni"}, {"id": 5, "author": "Ag Apolloni", "text": "Asgjë nuk zgjat përgjithmonë. As dashuria. As dehja. Dashuria dhe dehja thashë? Po a nuk janë e njëjta gjë?", "source": "https://sq.wikiquote.org/wiki/Ag_Apolloni"}, {"id": 6, "author": "Ismail Kadare", "text": "Njeriu në jetë ka nevoj për 1 filxhan shkencë, 1 shishe kujdes, dhe 1 oqean durim.", "source": "https://sq.wikiquote.org/wiki/Ismail_Kadare"}, {"id": 7, "author": "Ismail Kadare", "text": "Armiku mbetet armik edhe i vdekur qoftë.", "source": "https://sq.wikiquote.org/wiki/Ismail_Kadare"}, {"id": 8, "author": "Ismail Kadare", "text": "Armiku më i madh i njeriut është vetvetja... nga tjetri ka gjasë të shpëtosh, por nga vetvetja kurrë.", "source": "https://sq.wikiquote.org/wiki/Ismail_Kadare"}, {"id": 9, "author": "Ismail Kadare", "text": "Në art, një dashuri, qoftë kur duket e padobishme është më e frytshme se një urrejtje që ngjan e suksesshme.", "source": "https://sq.wikiquote.org/wiki/Ismail_Kadare"}, {"id": 10, "author": "Ismail Kadare", "text": "Arti gjithashtu ka mjetet e tij, fortesat, veglat, së fundi, armët e tij, shumica të fshehta; bota reale ka armët e saj kundër artit: censurën, doktrinat, burgjet.", "source": "https://sq.wikiquote.org/wiki/Ismail_Kadare"}, {"id": 11, "author": "Naim Frashëri", "text": "Jetoni për Shqipëri dhe vdisni për të.", "source": "https://sq.wikiquote.org/wiki/Naim_Frashëri"}, {"id": 12, "author": "Naim Frashëri", "text": "Punë, punë natë e ditë që të shohim pakëz dritë.", "source": "https://sq.wikiquote.org/wiki/Naim_Frashëri"}, {"id": 13, "author": "Naim Frashëri", "text": "Djalin që tradhton atdheun, nuk e do as nëna e vet!", "source": "https://sq.wikiquote.org/wiki/Naim_Frashëri"}, {"id": 14, "author": "Naim Frashëri", "text": "Nuk' është shpata,\nqë bën luftën...\nështë dora, jetëgjata,\ndhe zemëra që bën punë.", "source": "https://sq.wikiquote.org/wiki/Naim_Frashëri"}, {"id": 15, "author": "Naim Frashëri", "text": "Dëshira lind zotësinë.", "source": "https://sq.wikiquote.org/wiki/Naim_Frashëri"}, {"id": 16, "author": "Migjeni", "text": "Politika asht një kameleon, i cili - dihet - simbas vendit ku gjendet, merr dhe ngjyrën.", "source": "https://sq.wikiquote.org/wiki/Migjeni"}, {"id": 17, "author": "Migjeni", "text": "Kafshatë që s'kapërdihet asht, or vlla, mjerimi.", "source": "https://sq.wikiquote.org/wiki/Migjeni"}, {"id": 18, "author": "Fan Noli", "text": "Burrat e mëdhenj nuk i munguan as dje Shqipërisë, as sot dhe nuk do t'i mungojnë as nesër.", "source": "https://sq.wikiquote.org/wiki/Fan_Noli"}, {"id": 19, "author": "Fan Noli", "text": "Çdo komb çlirohet me përpjekjet e veta.", "source": "https://sq.wikiquote.org/wiki/Fan_Noli"}, {"id": 20, "author": "Fan Noli", "text": "Këngën e lirisë... asnjë saze s'e lot dot përveç dyfeqeve.", "source": "https://sq.wikiquote.org/wiki/Fan_Noli"}, {"id": 21, "author": "Fan Noli", "text": "Ne jemi shqiptarë dhe e kemi për detyrë të mbetemi siç qemë prej kohë, stoli e maleve të larta dhe të qiellit.", "source": "https://sq.wikiquote.org/wiki/Fan_Noli"}, {"id": 22, "author": "Fan Noli", "text": "Njeriu mund të zgjedhë cilëndo fe që ka trashëguar prej stërgjyshërve dhe që i pëlqen, por s’mund të zgjedhë një tjetër kombësi dhe të luftojë të tijën, pa vënë në ballë një vulë të madhe prej “tradhëtari”.", "source": "https://sq.wikiquote.org/wiki/Fan_Noli"}, {"id": 23, "author": "Ali Asllani", "text": "Ja grushti do të bjeri përmbi krye të zuzarëve; koha është e maskarenjve, po atdheu i shqiptarëve.", "source": "https://sq.wikiquote.org/wiki/Ali_Asllani"}, {"id": 24, "author": "Ali Asllani", "text": "I ka hije detit vala, i ka hije kalit shala, por më shumë se të gjitha i ka hije burrit fjala.", "source": "https://sq.wikiquote.org/wiki/Ali_Asllani"}, {"id": 25, "author": "Ali Asllani", "text": "Femra bën si hije: iu afrove nuk të qas, iu largove të vjen pas.", "source": "https://sq.wikiquote.org/wiki/Ali_Asllani"}, {"id": 26, "author": "Andon Zako Çajupi", "text": "Besa e bashkon njerinë.", "source": "https://sq.wikiquote.org/wiki/Andon_Zako_Çajupi"}, {"id": 27, "author": "Andon Zako Çajupi", "text": "Ay që do të fitojë, s´prish paratë pa nevojë.", "source": "https://sq.wikiquote.org/wiki/Andon_Zako_Çajupi"}, {"id": 28, "author": "Andon Zako Çajupi", "text": "Në do njeriu të rrojë me nderë, duet të punojë...", "source": "https://sq.wikiquote.org/wiki/Andon_Zako_Çajupi"}, {"id": 29, "author": "Faik Konica", "text": "Grekët e shpërdorojnë si shumë heshtjen përçmuese të shqiptarëve që nuk i hanë dokrrat e tyre bajate e boshe.", "source": "https://sq.wikiquote.org/wiki/Faik_Konica"}, {"id": 30, "author": "Faik Konica", "text": "Njeriu është më i lig se egërsirat, po kur vështronj shqiptarët e Stambollit, më vjen të thom që është më i lig se gjarpri dhe miu.", "source": "https://sq.wikiquote.org/wiki/Faik_Konica"}, {"id": 31, "author": "Faik Konica", "text": "Shumë duhet të punojmë ne shqiptarët, sot dhe për së shpejti; po më parë nga të gjitha, të shëndoshim dashurinë dhe vëllazërinë në mes tonë.", "source": "https://sq.wikiquote.org/wiki/Faik_Konica"}, {"id": 32, "author": "Sami Frashëri", "text": "Dashuria për atdheun është topi që shkatërron kalatë më të forta dhe kalaja që mund t'u qëndrojë topave më të fortë.", "source": "https://sq.wikiquote.org/wiki/Sami_Frashëri"}, {"id": 33, "author": "Sami Frashëri", "text": "Atdhedashurisë nuk ka gjë që mund t'i qëndrojë, si për mrekulli, ajo mund çdo gjë edhe me një forcë të vogël.", "source": "https://sq.wikiquote.org/wiki/Sami_Frashëri"}, {"id": 34, "author": "Sami Frashëri", "text": "Dëshira për liri dyfishon shpirtin e një kombi.", "source": "https://sq.wikiquote.org/wiki/Sami_Frashëri"}, {"id": 35, "author": "Sami Frashëri", "text": "Liria është thelbi i shpirtit dhe i mendjes; aty ku s'ka liri, mendja dhe shpirti thahen si bima pa ujë.", "source": "https://sq.wikiquote.org/wiki/Sami_Frashëri"}, {"id": 36, "author": "Sami Frashëri", "text": "Populli është themeli i shtetit; sa më i fortë të jetë themeli, aq më shumë qëndron godina.", "source": "https://sq.wikiquote.org/wiki/Sami_Frashëri"}, {"id": 37, "author": "Rexhep Qosja", "text": "Te liria nuk arrihet me lule, por me vuajtje dhe mundime të gjata.", "source": "https://sq.wikiquote.org/wiki/Rexhep_Qosja"}, {"id": 38, "author": "Rexhep Qosja", "text": "Unë nuk mund të ndihem ndryshe nga populli, të cilit i përkas.", "source": "https://sq.wikiquote.org/wiki/Rexhep_Qosja"}, {"id": 39, "author": "Zef Pllumi", "text": "Nuk na sjell lavdi lashtësia, në qoftë se nuk jemi të qytetnuem.", "source": "https://sq.wikiquote.org/wiki/Zef_Pllumi"}, {"id": 40, "author": "Zef Pllumi", "text": "Ziliqarit mos i trego as ëndrren që ke parë.", "source": "https://sq.wikiquote.org/wiki/Zef_Pllumi"}, {"id": 41, "author": "Zef Pllumi", "text": "Asht i mjerë ai popull që nuk ia del me zotnua bijtë e vet të këqij.", "source": "https://sq.wikiquote.org/wiki/Zef_Pllumi"}, {"id": 42, "author": "Pjetër Bogdani", "text": "Fati i popullit tim është fati im.", "source": "https://sq.wikiquote.org/wiki/Pjetër_Bogdani"}, {"id": 43, "author": "Pjetër Bogdani", "text": "Njeriut... duhet të sillet për dobi të shpirtit të vet e të popullit.", "source": "https://sq.wikiquote.org/wiki/Pjetër_Bogdani"}, {"id": 44, "author": "Pjetër Bogdani", "text": "Populli nuk e pëson duke qenë i ditur.", "source": "https://sq.wikiquote.org/wiki/Pjetër_Bogdani"}];
+  let _quoteIdx = -1;
+
+  function pickQuote(){
+    if(!Array.isArray(QUOTES) || QUOTES.length === 0) return;
+    let idx = Math.floor(Math.random() * QUOTES.length);
+    if(QUOTES.length > 1 && idx === _quoteIdx) idx = (idx + 1) % QUOTES.length;
+    _quoteIdx = idx;
+    const q = QUOTES[idx];
+    const qt = el('quoteText'); if(qt) qt.textContent = q.text ?? '—';
+    const qa = el('quoteAuthor'); if(qa) qa.textContent = q.author ? ('— ' + q.author) : '—';
+    const qs = el('quoteSource');
+  }
+
+  function startQuotes(){
+    pickQuote();
+    const btn = el('nextQuoteBtn');
+    if(btn) btn.onclick = pickQuote;
+    setInterval(pickQuote, 60000);
+  }
+
+
   // ====== UI bindings ======
   el('newBtn').onclick = newGame;
   el('themeBtn').onclick = toggleTheme;
@@ -759,6 +812,9 @@
     if(saved === 'light' || saved === 'dark') setTheme(saved);
     else setTheme('dark');
   })();
+
+  // Start quotes
+  startQuotes();
 
   // Start
   newGame();
