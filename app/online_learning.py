@@ -61,7 +61,7 @@ class OnlineLearner:
 
             self._updates += 1
 
-            if self._updates % 2 == 0:
+            if self._updates % 1 == 0:
                 if self.model_lock is None:
                     ckpt = {
                         "model": self.model.state_dict(),
