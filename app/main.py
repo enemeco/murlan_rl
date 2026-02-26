@@ -15,6 +15,7 @@ from .game_manager import GameManager, MurlanBot
 from .online_learning import OnlineLearner
 
 MODEL_PATH = os.getenv("MURLAN_MODEL_PATH", "checkpoints/murlan_policy.pt")
+SECRET_KEY = os.environ.get("MODEL_DOWNLOAD_KEY")
 
 app = FastAPI(title="Murlan RL")
 
@@ -71,3 +72,14 @@ def start_keep_alive_thread():
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.get("/download-model")
+def download_model(x_api_key: str = Header(None)):
+    if x_api_key != SECRET_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if not os.path.exists(MODEL_PATH):
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    return FileResponse(MODEL_PATH, filename="murlan_policy.pt")
