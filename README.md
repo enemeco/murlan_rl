@@ -128,7 +128,7 @@ Run **one application worker**. Game sessions and frozen hand policies are in me
 
 Back up the data directory. For a live SQLite database, use SQLite's backup API rather than copying only the `.sqlite3` file while WAL writes are active. When installing a new offline champion, stop the server and replace only the serving checkpoint; its fingerprint prevents stale PPO rows from being mixed with the new weights.
 
-`compose.yaml` mounts a durable volume. `render.yaml` is a **deployment configuration only**: it selects a disk-capable paid plan, mounts `/var/data`, and disables automatic deployment. Review the hosting plan before using it. A free ephemeral filesystem cannot retain experience or learned weights across redeployments. No hosting purchase or deployment is performed by this repository.
+`compose.yaml` mounts a durable volume. `render.yaml` now selects Render Free, enables online learning and an optional 13-minute public self-ping, and disables automatic deployment. See [KEEPALIVE_SETUP.md](KEEPALIVE_SETUP.md) for setup and limitations. Self-pinging is best effort and provides no persistent storage: experience and learned weights can be lost on sleep, restart, or redeploy. Training memory usage has not been verified on Render Free. No hosting purchase or deployment is performed by this repository.
 
 The server bounds active sessions to 128 with a two-hour idle timeout. Before opening the service broadly, put normal authentication and rate limits in your hosting layer and plan backups/retention for the growing replay database. The included application is a single-server research/game prototype, not a distributed service.
 

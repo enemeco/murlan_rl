@@ -1,19 +1,16 @@
-# Persistent storage requires a disk-capable Render plan. Review cost before deploying.
+# Best-effort self-ping does not preserve data across restarts or redeploys.
 services:
   - type: web
     name: murlan-rl
-    env: docker
-    plan: starter
-    autoDeploy: false
+    runtime: docker
+    branch: main
+    plan: free
+    autoDeployTrigger: off
     healthCheckPath: /health
-    disk:
-      name: murlan-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
-      - key: MURLAN_MODEL_PATH
-        value: /var/data/champion.pt
-      - key: MURLAN_REPLAY_PATH
-        value: /var/data/replay.sqlite3
       - key: MURLAN_ONLINE_LEARNING
+        value: "1"
+      - key: MURLAN_TORCH_THREADS
+        value: "1"
+      - key: MURLAN_SELF_PING
         value: "1"

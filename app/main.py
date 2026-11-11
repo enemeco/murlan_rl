@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from .game_manager import GameManager, MurlanBot
 from .online_learning import OnlineLearner
 from .replay import ReplayStore
+from .keepalive import start_self_ping
 from murlan.actions import ACTION_DIM
 from murlan.checkpoint import load_model, save_checkpoint
 
@@ -71,9 +72,14 @@ def create_app(model_path=None, replay_path=None, online=None):
         )
         app.state.manager = GameManager(bot, learner, replay)
         app.state.bot, app.state.learner, app.state.replay = bot, learner, replay
-        yield
-        if learner:
-            learner.close()
+        pinger = start_self_ping()
+        try:
+            yield
+        finally:
+            if pinger:
+                pinger.close()
+            if learner:
+                learner.close()
 
     app = FastAPI(title="Murlan · Learning Table", lifespan=lifespan)
     app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
