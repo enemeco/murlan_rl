@@ -1,0 +1,14 @@
+services:
+  murlan:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      MURLAN_MODEL_PATH: /data/champion.pt
+      MURLAN_REPLAY_PATH: /data/replay.sqlite3
+      MURLAN_ONLINE_LEARNING: "1"
+    volumes:
+      - murlan_data:/data
+    restart: unless-stopped
+volumes:
+  murlan_data:

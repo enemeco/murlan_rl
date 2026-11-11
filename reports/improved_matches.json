@@ -1,0 +1,368 @@
+{
+  "policy": "checkpoints/improved_policy.pt",
+  "mode": "match",
+  "summary": {
+    "greedy": {
+      "mean_points": 1.6760660019724212,
+      "win_rate": 0.28039491810595235,
+      "points_ci95": 0.08891172467335555,
+      "deals": 16,
+      "matches": 64,
+      "match_win_rate": 0.421875
+    },
+    "random": {
+      "mean_points": 2.876996527777778,
+      "win_rate": 0.9061197916666667,
+      "points_ci95": 0.05045725892892032,
+      "deals": 16,
+      "matches": 64,
+      "match_win_rate": 1.0
+    },
+    "strategic": {
+      "mean_points": 1.4519442847797626,
+      "win_rate": 0.1927869261049408,
+      "points_ci95": 0.0666090610477483,
+      "deals": 16,
+      "matches": 64,
+      "match_win_rate": 0.1875
+    }
+  },
+  "records": [
+    {
+      "opponent": "random",
+      "seed": 1800000,
+      "points": 2.96875,
+      "win_rate": 0.96875,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800001,
+      "points": 2.9375,
+      "win_rate": 0.9375,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800002,
+      "points": 2.9375,
+      "win_rate": 0.9375,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800003,
+      "points": 2.9375,
+      "win_rate": 0.9375,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800004,
+      "points": 2.9375,
+      "win_rate": 0.9375,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800005,
+      "points": 2.90625,
+      "win_rate": 0.90625,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800006,
+      "points": 2.96875,
+      "win_rate": 0.96875,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800007,
+      "points": 2.90625,
+      "win_rate": 0.90625,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800008,
+      "points": 2.73125,
+      "win_rate": 0.80625,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800009,
+      "points": 2.73125,
+      "win_rate": 0.8375,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800010,
+      "points": 2.857638888888889,
+      "win_rate": 0.9131944444444444,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800011,
+      "points": 2.96875,
+      "win_rate": 0.96875,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800012,
+      "points": 2.635416666666667,
+      "win_rate": 0.7465277777777778,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800013,
+      "points": 2.795138888888889,
+      "win_rate": 0.8506944444444444,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800014,
+      "points": 2.84375,
+      "win_rate": 0.90625,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "random",
+      "seed": 1800015,
+      "points": 2.96875,
+      "win_rate": 0.96875,
+      "match_win_rate": 1.0
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800000,
+      "points": 1.8305555555555557,
+      "win_rate": 0.3752525252525253,
+      "match_win_rate": 0.75
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800001,
+      "points": 1.8350815850815851,
+      "win_rate": 0.28593628593628595,
+      "match_win_rate": 0.5
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800002,
+      "points": 1.612689393939394,
+      "win_rate": 0.25946969696969696,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800003,
+      "points": 1.6060606060606062,
+      "win_rate": 0.303030303030303,
+      "match_win_rate": 0.5
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800004,
+      "points": 1.7353683897801544,
+      "win_rate": 0.27933749257278667,
+      "match_win_rate": 0.5
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800005,
+      "points": 1.6268939393939394,
+      "win_rate": 0.23055555555555554,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800006,
+      "points": 1.5513591800356505,
+      "win_rate": 0.25445632798573975,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800007,
+      "points": 1.883599149388623,
+      "win_rate": 0.37381711855396066,
+      "match_win_rate": 0.5
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800008,
+      "points": 1.9022727272727276,
+      "win_rate": 0.34545454545454546,
+      "match_win_rate": 0.75
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800009,
+      "points": 1.7873737373737375,
+      "win_rate": 0.3068181818181818,
+      "match_win_rate": 0.5
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800010,
+      "points": 1.825,
+      "win_rate": 0.3659090909090909,
+      "match_win_rate": 0.5
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800011,
+      "points": 1.6027462121212122,
+      "win_rate": 0.27888257575757575,
+      "match_win_rate": 0.0
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800012,
+      "points": 1.656060606060606,
+      "win_rate": 0.24646464646464647,
+      "match_win_rate": 0.5
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800013,
+      "points": 1.7481060606060606,
+      "win_rate": 0.35037878787878785,
+      "match_win_rate": 0.75
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800014,
+      "points": 1.338888888888889,
+      "win_rate": 0.10555555555555556,
+      "match_win_rate": 0.0
+    },
+    {
+      "opponent": "greedy",
+      "seed": 1800015,
+      "points": 1.275,
+      "win_rate": 0.125,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800000,
+      "points": 1.2561688311688313,
+      "win_rate": 0.19090909090909092,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800001,
+      "points": 1.543560606060606,
+      "win_rate": 0.22613636363636364,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800002,
+      "points": 1.453030303030303,
+      "win_rate": 0.18295454545454545,
+      "match_win_rate": 0.0
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800003,
+      "points": 1.6613636363636364,
+      "win_rate": 0.19633838383838384,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800004,
+      "points": 1.5541666666666665,
+      "win_rate": 0.28888888888888886,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800005,
+      "points": 1.1933303624480094,
+      "win_rate": 0.13205585264408792,
+      "match_win_rate": 0.0
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800006,
+      "points": 1.4395833333333334,
+      "win_rate": 0.1673611111111111,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800007,
+      "points": 1.4583333333333333,
+      "win_rate": 0.20833333333333331,
+      "match_win_rate": 0.0
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800008,
+      "points": 1.3397435897435899,
+      "win_rate": 0.14935897435897438,
+      "match_win_rate": 0.0
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800009,
+      "points": 1.4196775446775447,
+      "win_rate": 0.158993783993784,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800010,
+      "points": 1.4265151515151515,
+      "win_rate": 0.21420454545454548,
+      "match_win_rate": 0.0
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800011,
+      "points": 1.3393308080808082,
+      "win_rate": 0.09595959595959595,
+      "match_win_rate": 0.0
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800012,
+      "points": 1.3969988344988344,
+      "win_rate": 0.2175407925407925,
+      "match_win_rate": 0.0
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800013,
+      "points": 1.6875,
+      "win_rate": 0.2777777777777778,
+      "match_win_rate": 0.75
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800014,
+      "points": 1.45625,
+      "win_rate": 0.2020833333333333,
+      "match_win_rate": 0.25
+    },
+    {
+      "opponent": "strategic",
+      "seed": 1800015,
+      "points": 1.6055555555555556,
+      "win_rate": 0.17569444444444443,
+      "match_win_rate": 0.5
+    }
+  ]
+}

@@ -1,9 +1,19 @@
+# Persistent storage requires a disk-capable Render plan. Review cost before deploying.
 services:
   - type: web
     name: murlan-rl
     env: docker
-    plan: free
-    autoDeploy: true
+    plan: starter
+    autoDeploy: false
+    healthCheckPath: /health
+    disk:
+      name: murlan-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: MURLAN_MODEL_PATH
-        value: checkpoints/murlan_policy.pt
+        value: /var/data/champion.pt
+      - key: MURLAN_REPLAY_PATH
+        value: /var/data/replay.sqlite3
+      - key: MURLAN_ONLINE_LEARNING
+        value: "1"

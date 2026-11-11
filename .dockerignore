@@ -1,0 +1,10 @@
+.git
+.venv
+__pycache__
+.pytest_cache
+node_modules
+runs
+data
+*.zip
+*.sqlite3*
+.openai

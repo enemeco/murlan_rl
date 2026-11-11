@@ -1,177 +1,290 @@
 from __future__ import annotations
-
+from copy import deepcopy
+from dataclasses import dataclass, field
+from pathlib import Path
 import secrets
 import threading
-from dataclasses import dataclass
-from typing import Dict, List, Optional
-
+import time
 import numpy as np
 import torch
-
 from murlan.env import MurlanEnv
-from murlan.actions import pretty_action
-from murlan.cards import (
-    BLACK_JOKER_ID,
-    RED_JOKER_ID,
-    SUITS,
-    RANKS,
-    card_rank_i,
-    card_suit_i,
-)
-from murlan.model import PolicyValueNet, masked_categorical
+from murlan.actions import ACTION_DIM, action_desc, pretty_action
+from murlan.cards import SUITS, RANKS, card_rank_i, card_suit_i, sort_cards_by_rank
+from murlan.model import PolicyValueNet
+from murlan.checkpoint import load_model, policy_fingerprint
+from murlan.evaluation import policy_action
+from murlan.baselines import choose_action
+from murlan.trajectory import HandTrajectory
+from .replay import ReplayStore
 
 
-def card_to_str(card_id: int) -> str:
-    if card_id == BLACK_JOKER_ID:
-        return "BJ"
-    if card_id == RED_JOKER_ID:
-        return "RJ"
-    r = RANKS[card_rank_i(card_id)]
-    s = SUITS[card_suit_i(card_id)]
-    return f"{r}{s}"
+def card_to_str(card):
+    if card >= 52:
+        return "BJ" if card == 52 else "RJ"
+    return RANKS[card_rank_i(card)] + SUITS[card_suit_i(card)]
+
+
+class MurlanBot:
+    def __init__(self, ckpt_path, device="cpu"):
+        self.device, self.ckpt_path = device, str(ckpt_path)
+        self.lock = threading.RLock()
+        self.version = 0
+        self.fallback = not Path(ckpt_path).is_file()
+        if not self.fallback:
+            self.model, ckpt = load_model(ckpt_path, device)
+            self.version = int(ckpt.get("version", 0))
+        else:
+            self.model = PolicyValueNet(len(MurlanEnv().reset()[0])).to(device).eval()
+        self.policy_id = (
+            "strategic" if self.fallback else policy_fingerprint(self.model)
+        )
+
+    def snapshot(self):
+        with self.lock:
+            return (
+                deepcopy(self.model).eval(),
+                self.version,
+                self.fallback,
+                self.policy_id,
+            )
+
+    def promote(self, model, version):
+        with self.lock:
+            self.model.load_state_dict(model.state_dict())
+            self.model.eval()
+            self.version = version
+            self.fallback = False
+            self.policy_id = policy_fingerprint(self.model)
 
 
 @dataclass
 class GameSession:
     env: MurlanEnv
     human_seat: int
-    done: bool
-    bot_traj: List[dict]
-
-
-class MurlanBot:
-    def __init__(self, ckpt_path: str, device: str = "cpu"):
-        ckpt = torch.load(ckpt_path, map_location=device)
-        self.obs_dim = int(ckpt["obs_dim"])
-        self.model = PolicyValueNet(obs_dim=self.obs_dim, hidden=256).to(device)
-        self.model.load_state_dict(ckpt["model"])
-        self.model.eval()
-        self.device = device
-        self.lock = threading.RLock()
-
-    @torch.no_grad()
-    def act(self, obs: np.ndarray, legal_mask: np.ndarray, greedy: bool = True) -> int:
-        with self.lock:
-            obs_t = torch.from_numpy(obs).float().unsqueeze(0).to(self.device)
-            legal_t = torch.from_numpy(legal_mask.astype(np.bool_)).unsqueeze(0).to(self.device)
-            logits, _ = self.model(obs_t)
-            dist = masked_categorical(logits, legal_t)
-            if greedy:
-                return int(dist.probs.argmax(dim=-1).item())
-            return int(dist.sample().item())
-
-    @torch.no_grad()
-    def act_with_stats(self, obs: np.ndarray, legal_mask: np.ndarray, greedy: bool = True):
-        """Return (action, logp, value) under current policy."""
-        with self.lock:
-            obs_t = torch.from_numpy(obs).float().unsqueeze(0).to(self.device)
-            legal_t = torch.from_numpy(legal_mask.astype(np.bool_)).unsqueeze(0).to(self.device)
-            logits, v = self.model(obs_t)
-            dist = masked_categorical(logits, legal_t)
-            a_t = dist.probs.argmax(dim=-1) if greedy else dist.sample()
-            logp = dist.log_prob(a_t)
-            return int(a_t.item()), float(logp.item()), float(v.item())
+    model: object
+    version: int
+    fallback: bool
+    mode: str
+    learn: bool
+    policy_id: str = ""
+    done: bool = False
+    step: int = 0
+    trajectory: HandTrajectory = field(default_factory=HandTrajectory)
+    events: list = field(default_factory=list)
+    trick_cards: list = field(default_factory=list)
+    lock: object = field(default_factory=threading.RLock)
+    touched: float = field(default_factory=time.monotonic)
+    requests: dict = field(default_factory=dict)
 
 
 class GameManager:
-    def __init__(self, bot: MurlanBot, learner=None):
-        self.bot = bot
-        self.learner = learner
-        self.games: Dict[str, GameSession] = {}
+    def __init__(self, bot, learner=None, replay=None, max_games=128, ttl=7200):
+        self.bot, self.learner = bot, learner
+        self.replay = replay or ReplayStore()
+        self.games = {}
+        self.lock = threading.RLock()
+        self.max_games, self.ttl = max_games, ttl
 
-    def new_game(self, seed: Optional[int] = None, human_seat: int = 0) -> str:
-        if seed is None:
-            seed = secrets.randbits(32)   # seed random çdo lojë
+    def _session(self, gid):
+        with self.lock:
+            session = self.games.get(gid)
+            if session is None or time.monotonic() - session.touched > self.ttl:
+                if session is not None:
+                    del self.games[gid]
+                raise KeyError("Game not found or expired")
+            session.touched = time.monotonic()
+            return session
 
-        env = MurlanEnv(seed=seed)
-        env.reset(seed=seed)
-
-        gid = secrets.token_urlsafe(16)
-        self.games[gid] = GameSession(env=env, human_seat=human_seat, done=False, bot_traj=[])
-        self._autoplay_until_human(gid)
+    def new_game(self, seed=None, human_seat=0, mode="learn", learn=True):
+        if human_seat not in range(4) or mode not in ("learn", "competitive"):
+            raise ValueError("Invalid seat or mode")
+        env = MurlanEnv(secrets.randbits(32) if seed is None else seed)
+        env.reset()
+        model, version, fallback, policy_id = self.bot.snapshot()
+        gid = secrets.token_urlsafe(24)
+        session = GameSession(
+            env, human_seat, model, version, fallback, mode, learn, policy_id
+        )
+        with self.lock:
+            expired = [
+                key
+                for key, s in self.games.items()
+                if time.monotonic() - s.touched > self.ttl
+            ]
+            for key in expired:
+                del self.games[key]
+            if len(self.games) >= self.max_games:
+                raise RuntimeError("Server is at game capacity; try again later")
+            self.games[gid] = session
+        with session.lock:
+            self._autoplay(gid, session)
         return gid
 
-    def get_state(self, gid: str) -> Dict:
-        sess = self.games[gid]
-        env = sess.env
-        human = sess.human_seat
+    def get_state(self, gid):
+        session = self._session(gid)
+        with session.lock:
+            return self._state(gid, session)
 
-        mask = env.legal_mask(human) if env.current_player == human else np.zeros_like(env.legal_mask(env.current_player))
-        state = {
-            "game_id": gid,
-            "phase": env.phase,
-            "current_player": env.current_player,
-            "human_seat": human,
-            "scores": env.scores,
-            "goal_target": env.goal_target,
-            "hand_sizes": [len(h) for h in env.hands],
-            "your_hand": [card_to_str(c) for c in env.hands[human]],
-            "trick": None if env.current_combo is None else {
-                "kind": env.current_combo.kind,
-                "size": env.current_combo.size,
-                "primary_rank": int(env.current_combo.primary_rank),
-            },
-            "passed": env.passed,
-            "done": sess.done,
-            "your_turn": (env.current_player == human and not sess.done),
-            "legal_actions": [i for i, ok in enumerate(mask.tolist()) if ok],
-            "legal_action_names": [pretty_action(i) for i, ok in enumerate(mask.tolist()) if ok],
-        }
-        return state
+    def _state(self, gid, s):
+        e, h = s.env, s.human_seat
+        turn = e.current_player == h and not s.done
+        legal = np.flatnonzero(e.legal_mask(h)).tolist() if turn else []
+        combo = e.current_combo
+        options = []
+        for a in legal:
+            d = action_desc(a)
+            options.append(
+                dict(
+                    id=a,
+                    kind=d.kind,
+                    ranks=[RANKS[r] for r in d.payload],
+                    label=pretty_action(a),
+                )
+            )
+        return dict(
+            game_id=gid,
+            revision=s.step,
+            phase=e.phase,
+            hand_number=e.hand_index + 1,
+            current_player=e.current_player,
+            human_seat=h,
+            scores=list(e.scores),
+            goal_target=e.goal_target,
+            hand_sizes=[len(x) for x in e.hands],
+            your_hand=[card_to_str(c) for c in sort_cards_by_rank(e.hands[h])],
+            trick=(
+                None
+                if combo is None
+                else dict(
+                    kind=combo.kind,
+                    size=combo.size,
+                    primary_rank=combo.primary_rank,
+                    ranks=[RANKS[r] for r in combo.ranks],
+                    cards=list(s.trick_cards),
+                )
+            ),
+            passed=list(e.passed),
+            finished=list(e.finished),
+            done=s.done,
+            your_turn=turn,
+            winner=int(np.argmax(e.scores)) if s.done else None,
+            legal_actions=legal,
+            legal_action_names=[pretty_action(a) for a in legal],
+            actions=options,
+            events=list(s.events[-32:]),
+            bot_version=s.version,
+            bot_kind="strategic" if s.fallback else "policy",
+            mode=s.mode,
+            learning_enabled=s.learn,
+        )
 
-    def human_act(self, gid: str, action: int) -> Dict:
-        sess = self.games[gid]
-        env = sess.env
-        human = sess.human_seat
+    def human_act(self, gid, action, revision=None, request_id=None):
+        s = self._session(gid)
+        with s.lock:
+            if request_id and request_id in s.requests:
+                previous = s.requests[request_id]
+                if previous != (action, revision):
+                    raise ValueError("Request ID already used for a different action")
+                return self._state(gid, s)
+            if revision is not None and revision != s.step:
+                raise ValueError("Stale turn; refresh the game")
+            if s.done or s.env.current_player != s.human_seat:
+                raise ValueError("It is not your turn")
+            if (
+                isinstance(action, bool)
+                or not isinstance(action, int)
+                or not 0 <= action < ACTION_DIM
+                or not s.env.legal_mask(s.human_seat)[action]
+            ):
+                raise ValueError("Illegal action")
+            self._step(gid, s, action, human=True)
+            self._autoplay(gid, s)
+            if request_id:
+                s.requests[request_id] = (action, revision)
+                if len(s.requests) > 128:
+                    del s.requests[next(iter(s.requests))]
+            return self._state(gid, s)
 
-        if sess.done:
-            return self.get_state(gid)
+    def _step(self, gid, s, action, human=False, stats=None):
+        env = s.env
+        p, hand = env.current_player, env.hand_index
+        obs, legal = env.observe(p), env.legal_mask(p)
+        if s.learn:
+            # Commit each human move immediately; unfinished games retain their moves.
+            self.replay.record_action(
+                gid, hand, s.step, p, human, s.version, obs, legal, action
+            )
+        if stats is not None and s.learn:
+            logp, value = stats
+            s.trajectory.record(
+                p, obs, legal, action, logp, value, temperature=1.0, epsilon=0.03
+            )
+        before = list(env.hands[p])
+        _, _, rewards, done, info = env.step(action)
+        if s.learn:
+            s.trajectory.reward(rewards)
+        s.step += 1
+        desc = action_desc(action)
+        # Exact public action history, including every bot move between human turns.
+        cards = []
+        if info.played and not info.hand_over:
+            cards = [card_to_str(c) for c in before if c not in env.hands[p]]
+        elif info.played:
+            need = (
+                list(desc.payload)
+                if desc.kind == "straight"
+                else list(desc.payload) * info.played.size
+            )
+            for rank in need:
+                c = next(c for c in before if card_rank_i(c) == rank)
+                before.remove(c)
+                cards.append(card_to_str(c))
+        event = dict(
+            id=s.step,
+            player=p,
+            kind=desc.kind,
+            label=pretty_action(action),
+            cards=cards,
+            hand=hand + 1,
+        )
+        if env.current_combo is None:
+            s.trick_cards = []
+        elif info.played:
+            s.trick_cards = list(cards)
+        if info.hand_over:
+            event["finish_order"] = info.hand_finish_order
+        s.events.append(event)
+        s.events = s.events[-64:]
+        s.done = done
+        if info.hand_over:
+            if s.learn:
+                self.replay.complete_hand(
+                    gid,
+                    hand,
+                    s.version,
+                    s.trajectory.finish(),
+                    info.hand_finish_order,
+                    policy_id=s.policy_id,
+                )
+                if self.learner:
+                    self.learner.wake()
+            s.trajectory = HandTrajectory()
+            # Freeze a serving policy for a whole hand; never change it mid-trajectory.
+            s.model, s.version, s.fallback, s.policy_id = self.bot.snapshot()
 
-        if env.current_player != human:
-            self._autoplay_until_human(gid)
-            return self.get_state(gid)
-
-        _, _, _, done, _ = env.step(int(action))
-        if done:
-            sess.done = True
-            if self.learner is not None:
-                self.learner.submit_game(sess.bot_traj)
-            return self.get_state(gid)
-
-        self._autoplay_until_human(gid)
-        return self.get_state(gid)
-
-    def _autoplay_until_human(self, gid: str, max_steps: int = 5000):
-        sess = self.games[gid]
-        env = sess.env
-        human = sess.human_seat
-
-        steps = 0
-        while (not sess.done) and env.current_player != human:
-            actor = env.current_player
-            obs = env.observe(actor)
-            mask = env.legal_mask(actor)
-
-            a, logp, val = self.bot.act_with_stats(obs, mask, greedy=True)
-            _, _, reward_vec, done, _ = env.step(a)
-
-            sess.bot_traj.append({
-                "obs": obs.astype(np.float32),
-                "legal": mask.astype(np.bool_),
-                "act": int(a),
-                "logp": float(logp),
-                "val": float(val),
-                "rew": float(reward_vec[actor]),
-                "done": 1.0 if done else 0.0,
-            })
-
-            if done:
-                sess.done = True
-                if self.learner is not None:
-                    self.learner.submit_game(sess.bot_traj)
-                break
-
-            steps += 1
-            if steps > max_steps:
-                sess.done = True
-                break
+    def _autoplay(self, gid, s):
+        for _ in range(5000):
+            if s.done or s.env.current_player == s.human_seat:
+                return
+            if s.fallback:
+                action = choose_action(s.env, "strategic")
+                stats = None
+            else:
+                sampled = s.mode == "learn"
+                action, logp, value = policy_action(
+                    s.model, s.env, greedy=not sampled, epsilon=0.03 if sampled else 0.0
+                )
+                # Greedy competitive play is not on-policy PPO experience.
+                stats = (logp, value) if sampled else None
+            self._step(gid, s, action, stats=stats)
+        raise RuntimeError("Autoplay exceeded its safety limit")

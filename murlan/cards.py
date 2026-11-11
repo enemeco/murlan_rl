@@ -1,7 +1,7 @@
 """
 Card + rank utilities for Murlan.
 
-Rules summary is taken from the user's provided rules file. fileciteturn0file0
+Rule variant is documented in README.md.
 
 We use a standard 52-card deck + 2 jokers:
   - 52 = Black Joker
@@ -16,7 +16,23 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 # Ranks in Murlan (low -> high)
-RANKS: List[str] = ["3","4","5","6","7","8","9","10","J","Q","K","A","2","BJ","RJ"]
+RANKS: List[str] = [
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "J",
+    "Q",
+    "K",
+    "A",
+    "2",
+    "BJ",
+    "RJ",
+]
 RANK_TO_I = {r: i for i, r in enumerate(RANKS)}
 
 # Suits for the 52 standard cards. Suit doesn't matter for combos, except the forced 3 of spades rule.
@@ -59,7 +75,9 @@ def make_deck() -> List[int]:
 
 
 def sort_cards_by_rank(cards: List[int]) -> List[int]:
-    return sorted(cards, key=lambda c: (card_rank_i(c), card_suit_i(c) if c < 52 else 9))
+    return sorted(
+        cards, key=lambda c: (card_rank_i(c), card_suit_i(c) if c < 52 else 9)
+    )
 
 
 def counts_by_rank(cards: List[int]) -> List[int]:
@@ -83,7 +101,11 @@ class Combo:
 
     @property
     def size(self) -> int:
-        return len(self.ranks) if self.kind == "straight" else {"single": 1, "pair": 2, "triple": 3, "quad": 4}[self.kind]
+        return (
+            len(self.ranks)
+            if self.kind == "straight"
+            else {"single": 1, "pair": 2, "triple": 3, "quad": 4}[self.kind]
+        )
 
     @property
     def primary_rank(self) -> int:

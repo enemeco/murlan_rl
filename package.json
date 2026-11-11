@@ -1,0 +1,7 @@
+{
+  "name": "murlan-learning-table",
+  "private": true,
+  "scripts": {
+    "dev": "python scripts/dev.py"
+  }
+}

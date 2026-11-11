@@ -1,0 +1,14 @@
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.venv/
+.env
+node_modules/
+runs/
+data/
+*.sqlite3*
+checkpoints/*
+!checkpoints/murlan_policy.pt
+!checkpoints/improved_policy.pt
+!checkpoints/training_resume.pt
+.openai/

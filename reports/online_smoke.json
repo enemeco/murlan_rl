@@ -1,0 +1,143 @@
+{
+  "synthetic_human": true,
+  "checkpoint": "checkpoints/improved_policy.pt",
+  "before": {
+    "human_moves": 45,
+    "total_moves": 238,
+    "completed_hands": 4,
+    "pending_hands": 4,
+    "updates": 0,
+    "promotions": 0,
+    "last_update": null
+  },
+  "after": {
+    "human_moves": 45,
+    "total_moves": 238,
+    "completed_hands": 4,
+    "pending_hands": 0,
+    "updates": 1,
+    "promotions": 0,
+    "last_update": {
+      "status": "retained",
+      "details": {
+        "training": {
+          "loss": 0.035627009347081184,
+          "pi_loss": 0.00023627467453479767,
+          "vf_loss": 0.0743773765861988,
+          "ent": 0.17979513481259346,
+          "approx_kl": 3.1189516448648646e-05,
+          "clip_fraction": 0.0,
+          "early_stop": false,
+          "minibatches": 4,
+          "explained_variance": 0.5934122187219315,
+          "human_moves": 45,
+          "imitation_loss": 1.0219199657440186
+        },
+        "gate": {
+          "promote": false,
+          "mean_delta": -0.0034092477368406204,
+          "lower95": -0.025242653295923026,
+          "per_opponent_delta": {
+            "greedy": -0.006723955331734005,
+            "random": 0.0,
+            "strategic": -0.0035037878787878562
+          },
+          "per_opponent_match_win_delta": {
+            "greedy": 0.0,
+            "random": 0.0,
+            "strategic": 0.0
+          },
+          "deals": 8
+        },
+        "evaluation": {
+          "greedy": {
+            "mean_points": 1.7712848466355626,
+            "win_rate": 0.3342911713437062,
+            "points_ci95": 0.12744377459230663,
+            "deals": 8,
+            "matches": 32,
+            "match_win_rate": 0.5625
+          },
+          "random": {
+            "mean_points": 2.853298611111111,
+            "win_rate": 0.8819444444444444,
+            "points_ci95": 0.043190773892810445,
+            "deals": 8,
+            "matches": 32,
+            "match_win_rate": 1.0
+          },
+          "strategic": {
+            "mean_points": 1.4353414661319073,
+            "win_rate": 0.19214572192513368,
+            "points_ci95": 0.13183856726267493,
+            "deals": 8,
+            "matches": 32,
+            "match_win_rate": 0.15625
+          }
+        },
+        "source_policy_id": "7157d6c80e1c8ec81435f53fafb7f2c37ee5a6156d4badba1f90c7ae29030354"
+      },
+      "created": "2026-11-11 03:26:45"
+    }
+  },
+  "candidate": {
+    "training": {
+      "loss": 0.035627009347081184,
+      "pi_loss": 0.00023627467453479767,
+      "vf_loss": 0.0743773765861988,
+      "ent": 0.17979513481259346,
+      "approx_kl": 3.1189516448648646e-05,
+      "clip_fraction": 0.0,
+      "early_stop": false,
+      "minibatches": 4,
+      "explained_variance": 0.5934122187219315,
+      "human_moves": 45,
+      "imitation_loss": 1.0219199657440186
+    },
+    "gate": {
+      "promote": false,
+      "mean_delta": -0.0034092477368406204,
+      "lower95": -0.025242653295923026,
+      "per_opponent_delta": {
+        "greedy": -0.006723955331734005,
+        "random": 0.0,
+        "strategic": -0.0035037878787878562
+      },
+      "per_opponent_match_win_delta": {
+        "greedy": 0.0,
+        "random": 0.0,
+        "strategic": 0.0
+      },
+      "deals": 8
+    },
+    "evaluation": {
+      "greedy": {
+        "mean_points": 1.7712848466355626,
+        "win_rate": 0.3342911713437062,
+        "points_ci95": 0.12744377459230663,
+        "deals": 8,
+        "matches": 32,
+        "match_win_rate": 0.5625
+      },
+      "random": {
+        "mean_points": 2.853298611111111,
+        "win_rate": 0.8819444444444444,
+        "points_ci95": 0.043190773892810445,
+        "deals": 8,
+        "matches": 32,
+        "match_win_rate": 1.0
+      },
+      "strategic": {
+        "mean_points": 1.4353414661319073,
+        "win_rate": 0.19214572192513368,
+        "points_ci95": 0.13183856726267493,
+        "deals": 8,
+        "matches": 32,
+        "match_win_rate": 0.15625
+      }
+    },
+    "source_policy_id": "7157d6c80e1c8ec81435f53fafb7f2c37ee5a6156d4badba1f90c7ae29030354"
+  },
+  "serving_version": 0,
+  "persisted_champion_verified": true
+}

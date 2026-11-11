@@ -1,7 +1,7 @@
 """
 Turn-based Murlan environment.
 
-Implements the rules from the provided file. fileciteturn0file0
+Implements the rule variant documented in README.md.
 
 RL-friendly:
 - fixed discrete action space (murlan/actions.py)
@@ -62,6 +62,9 @@ class StepInfo:
 class MurlanEnv:
     def __init__(self, seed: int = 0):
         self.rng = random.Random(seed)
+        self.match_over = False
+        self.played_counts = np.zeros((4, 15), dtype=np.float32)
+        self.last_actions = [-1] * 4
 
         self.scores = [0, 0, 0, 0]
         self.goal_target = 21
@@ -89,6 +92,7 @@ class MurlanEnv:
             self.rng.seed(seed)
 
         self.scores = [0, 0, 0, 0]
+        self.match_over = False
         self.goal_target = 21
         self.hand_index = 0
         self.prev_finish_order = None
@@ -99,11 +103,13 @@ class MurlanEnv:
         mask = self.legal_mask(self.current_player)
         return obs, mask
 
-    def observe(self, player: int) -> np.ndarray:
+    def observe_legacy(self, player: int) -> np.ndarray:
         phase_swap = 1.0 if self.phase == "swap" else 0.0
         phase_play = 1.0 if self.phase == "play" else 0.0
 
-        my_counts = np.array(counts_by_rank(self.hands[player]), dtype=np.float32) / 14.0
+        my_counts = (
+            np.array(counts_by_rank(self.hands[player]), dtype=np.float32) / 14.0
+        )
         sizes = np.array([len(h) for h in self.hands], dtype=np.float32) / 14.0
         scores = np.array(self.scores, dtype=np.float32) / float(self.max_target)
         goal = np.array([self.goal_target / float(self.max_target)], dtype=np.float32)
@@ -117,33 +123,84 @@ class MurlanEnv:
             trick_val = np.array([0.0], dtype=np.float32)
         else:
             trick_size = np.array([self.current_combo.size / 12.0], dtype=np.float32)
-            trick_val = np.array([self.current_combo.primary_rank / 14.0], dtype=np.float32)
+            trick_val = np.array(
+                [self.current_combo.primary_rank / 14.0], dtype=np.float32
+            )
 
         passed = np.array([1.0 if x else 0.0 for x in self.passed], dtype=np.float32)
-        must_3s = np.array([1.0 if self.require_three_spades else 0.0], dtype=np.float32)
+        must_3s = np.array(
+            [1.0 if self.require_three_spades else 0.0], dtype=np.float32
+        )
 
         seat = np.zeros(4, dtype=np.float32)
         seat[player] = 1.0
 
-        obs = np.concatenate([
-            np.array([phase_swap, phase_play], dtype=np.float32),
-            my_counts,
-            sizes,
-            scores,
-            goal,
-            kind_oh,
-            trick_size,
-            trick_val,
-            passed,
-            must_3s,
-            seat,
-        ])
+        obs = np.concatenate(
+            [
+                np.array([phase_swap, phase_play], dtype=np.float32),
+                my_counts,
+                sizes,
+                scores,
+                goal,
+                kind_oh,
+                trick_size,
+                trick_val,
+                passed,
+                must_3s,
+                seat,
+            ]
+        )
         return obs.astype(np.float32)
+
+    def observe(self, player: int, version: int = 2) -> np.ndarray:
+        """Own cards and public information only; never opponent identities.
+
+        The first 43 features retain the old schema for exact weight migration.
+        Added seat-relative features make shared-policy learning easier.
+        """
+        legacy = self.observe_legacy(player)
+        if version == 1:
+            return legacy
+        seats = [(player + i) % 4 for i in range(4)]
+        own = np.asarray(counts_by_rank(self.hands[player]), dtype=np.float32)
+        public = self.played_counts.sum(axis=0)
+        deck_counts = np.asarray([4] * 13 + [1, 1], dtype=np.float32)
+        unseen = np.maximum(0, deck_counts - own - public) / 4.0
+        last_actor = np.zeros(4, dtype=np.float32)
+        if self.last_player is not None:
+            last_actor[seats.index(self.last_player)] = 1
+        # Full previous action semantics, including passes, for every relative seat.
+        from .features import ACTION_FEATURES
+
+        history = np.stack(
+            [
+                (
+                    ACTION_FEATURES[a]
+                    if a >= 0
+                    else np.zeros(ACTION_FEATURES.shape[1], dtype=np.float32)
+                )
+                for a in [self.last_actions[s] for s in seats]
+            ]
+        )
+        return np.concatenate(
+            [
+                legacy,
+                own / 4.0,
+                unseen,
+                self.played_counts[seats].ravel() / 4.0,
+                np.asarray([len(self.hands[s]) / 14.0 for s in seats]),
+                np.asarray([self.scores[s] / self.max_target for s in seats]),
+                np.asarray([self.passed[s] for s in seats], dtype=np.float32),
+                np.asarray([self.finished[s] for s in seats], dtype=np.float32),
+                last_actor,
+                history.ravel(),
+            ]
+        ).astype(np.float32)
 
     def legal_mask(self, player: int) -> np.ndarray:
         mask = np.zeros(ACTION_DIM, dtype=np.bool_)
 
-        if self.finished[player]:
+        if self.match_over or self.finished[player]:
             mask[PASS] = True
             return mask
 
@@ -171,7 +228,7 @@ class MurlanEnv:
                 mask[a] = True
 
         def can_play_straight(seq: Tuple[int, ...]) -> bool:
-            needed = [11,12,0,1,2] if seq == (11,12,0,1,2) else list(seq)
+            needed = [11, 12, 0, 1, 2] if seq == (11, 12, 0, 1, 2) else list(seq)
             return all(counts[r] >= 1 for r in needed)
 
         # lead
@@ -183,6 +240,7 @@ class MurlanEnv:
                 add_if(counts[r] >= 3, 29 + r)
                 add_if(counts[r] >= 4, 42 + r)
             from .actions import STRAIGHT_BASE, STRAIGHTS
+
             for i, seq in enumerate(STRAIGHTS):
                 add_if(can_play_straight(seq), STRAIGHT_BASE + i)
 
@@ -198,6 +256,7 @@ class MurlanEnv:
                 restricted[29 + must_rank] = mask[29 + must_rank]
                 restricted[42 + must_rank] = mask[42 + must_rank]
                 from .actions import STRAIGHT_BASE, STRAIGHTS
+
                 for i, seq in enumerate(STRAIGHTS):
                     if must_rank in seq:
                         restricted[STRAIGHT_BASE + i] = mask[STRAIGHT_BASE + i]
@@ -217,7 +276,7 @@ class MurlanEnv:
                     mask[42 + r] = True
             return mask
 
-        if cur.kind in {"single","pair","triple"}:
+        if cur.kind in {"single", "pair", "triple"}:
             n = {"single": 1, "pair": 2, "triple": 3}[cur.kind]
             r0 = cur.primary_rank
             max_r = 14 if cur.kind == "single" else 12
@@ -232,6 +291,7 @@ class MurlanEnv:
 
         elif cur.kind == "straight":
             from .actions import STRAIGHT_BASE, STRAIGHTS
+
             cur_len = cur.size
             cur_val = cur.primary_rank
             for i, seq in enumerate(STRAIGHTS):
@@ -249,11 +309,20 @@ class MurlanEnv:
 
         return mask
 
-    def step(self, action: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, bool, StepInfo]:
+    def step(
+        self, action: int
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, bool, StepInfo]:
+        if self.match_over:
+            raise ValueError("Match has ended")
         p = self.current_player
         legal = self.legal_mask(p)
-        if not legal[action]:
-            action = PASS
+        if isinstance(action, (bool, np.bool_)) or not isinstance(
+            action, (int, np.integer)
+        ):
+            raise ValueError("Action must be an integer")
+        if not 0 <= action < ACTION_DIM or not legal[action]:
+            raise ValueError(f"Illegal action {action} for player {p}")
+        self.last_actions[p] = int(action)
 
         reward_vec = np.zeros(4, dtype=np.float32)
         played_combo: Optional[Combo] = None
@@ -275,6 +344,10 @@ class MurlanEnv:
             self.hands[self.swap_first].append(take_card)
             self.hands[self.swap_last].append(give_card)
 
+            self.hands[self.swap_first] = sort_cards_by_rank(
+                self.hands[self.swap_first]
+            )
+            self.hands[self.swap_last] = sort_cards_by_rank(self.hands[self.swap_last])
             self.phase = "play"
             self.swap_first = None
             self.swap_last = None
@@ -287,14 +360,17 @@ class MurlanEnv:
             desc = action_desc(action)
 
             if desc.kind == "pass":
-                if self.current_combo is None:
-                    reward_vec[p] -= 0.02
-                else:
-                    self.passed[p] = True
-                    reward_vec[p] -= 0.005
+                self.passed[p] = True
             else:
                 played_combo = self._apply_play_action(p, desc)
-                reward_vec[p] += 0.01 * played_combo.size
+                # No pass penalty or per-card reward: optimize finishing position.
+                if played_combo.kind == "straight":
+                    for rank in played_combo.ranks:
+                        self.played_counts[p, rank] += 1
+                else:
+                    self.played_counts[
+                        p, played_combo.primary_rank
+                    ] += played_combo.size
 
                 self.current_combo = played_combo
                 self.last_player = p
@@ -332,19 +408,16 @@ class MurlanEnv:
                 for place, pl in enumerate(hand_finish_order):
                     pts = [3, 2, 1, 0][place]
                     self.scores[pl] += pts
-                    hand_points[pl] = pts / 3.0
+                    hand_points[pl] = 2.0 * pts / 3.0 - 1.0
                 reward_vec += np.array(hand_points, dtype=np.float32)
 
                 match_over = self._update_goal_and_check_end()
-                if match_over:
-                    winner = int(np.argmax(self.scores))
-                    for i in range(4):
-                        reward_vec[i] += 1.0 if i == winner else -0.2
-                else:
+                if not match_over:
                     self.prev_finish_order = hand_finish_order
                     self.hand_index += 1
                     self._start_new_hand(first_hand=False)
 
+        self.match_over = match_over
         done = match_over
         info = StepInfo(
             phase=self.phase,
@@ -364,6 +437,8 @@ class MurlanEnv:
         return obs_next, mask_next, reward_vec, done, info
 
     def _start_new_hand(self, first_hand: bool):
+        self.played_counts = np.zeros((4, 15), dtype=np.float32)
+        self.last_actions = [-1] * 4
         self.hands = [[] for _ in range(4)]
         self.finished = [False] * 4
         self.finish_order = []
@@ -393,7 +468,9 @@ class MurlanEnv:
         prev_first = self.prev_finish_order[0]
         prev_last = self.prev_finish_order[-1]
 
-        last_has_both_jokers = (BLACK_JOKER_ID in self.hands[prev_last]) and (RED_JOKER_ID in self.hands[prev_last])
+        last_has_both_jokers = (BLACK_JOKER_ID in self.hands[prev_last]) and (
+            RED_JOKER_ID in self.hands[prev_last]
+        )
 
         starter = prev_first if last_has_both_jokers else prev_last
 
@@ -416,13 +493,19 @@ class MurlanEnv:
             return True
         if len(ge) >= 2:
             self.goal_target = min(self.goal_target + 10, self.max_target)
+            if (
+                self.goal_target == self.max_target
+                and max(self.scores) >= self.max_target
+            ):
+                # At the cap, continue tied leaders until one has a unique lead.
+                return self.scores.count(max(self.scores)) == 1
             return False
         return False
 
     def _next_active(self, p: int) -> int:
         for k in range(1, 5):
             q = (p + k) % 4
-            if not self.finished[q]:
+            if not self.finished[q] and not self.passed[q]:
                 return q
         return p
 
@@ -445,7 +528,9 @@ class MurlanEnv:
         return self.hands[p].pop(0)
 
     def _pop_highest_card(self, p: int) -> int:
-        hi_idx = max(range(len(self.hands[p])), key=lambda i: card_rank_i(self.hands[p][i]))
+        hi_idx = max(
+            range(len(self.hands[p])), key=lambda i: card_rank_i(self.hands[p][i])
+        )
         return self.hands[p].pop(hi_idx)
 
     def _apply_play_action(self, p: int, desc: ActionDesc) -> Combo:
@@ -457,7 +542,11 @@ class MurlanEnv:
 
             removed: List[int] = []
 
-            if self.require_three_spades and rank_i == 0 and THREE_OF_SPADES_ID in self.hands[p]:
+            if (
+                self.require_three_spades
+                and rank_i == 0
+                and THREE_OF_SPADES_ID in self.hands[p]
+            ):
                 self.hands[p].remove(THREE_OF_SPADES_ID)
                 removed.append(THREE_OF_SPADES_ID)
 
@@ -474,7 +563,11 @@ class MurlanEnv:
             needed = list(seq)
             removed: List[int] = []
 
-            if self.require_three_spades and 0 in needed and THREE_OF_SPADES_ID in self.hands[p]:
+            if (
+                self.require_three_spades
+                and 0 in needed
+                and THREE_OF_SPADES_ID in self.hands[p]
+            ):
                 self.hands[p].remove(THREE_OF_SPADES_ID)
                 removed.append(THREE_OF_SPADES_ID)
                 needed.remove(0)

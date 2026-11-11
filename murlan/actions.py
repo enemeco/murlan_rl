@@ -16,7 +16,7 @@ Straight patterns:
   - all sequences within ranks 3..A (inclusive) with length 5..12
   - plus special low straight A-2-3-4-5 (lowest straight)
 
-Matches the examples in the rules file. fileciteturn0file0
+The low straight is A-2-3-4-5.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ SINGLE_BASE = 1
 SINGLE_N = 15  # 3..RJ
 
 PAIR_BASE = SINGLE_BASE + SINGLE_N
-PAIR_N = 13    # 3..2 (no jokers)
+PAIR_N = 13  # 3..2 (no jokers)
 
 TRIPLE_BASE = PAIR_BASE + PAIR_N
 TRIPLE_N = 13
@@ -114,7 +114,7 @@ def pretty_action(a: int) -> str:
     d = action_desc(a)
     if d.kind == "pass":
         return "PASS"
-    if d.kind in {"single","pair","triple","quad"}:
+    if d.kind in {"single", "pair", "triple", "quad"}:
         r = d.payload[0]
         return f"{d.kind.upper()}({RANKS[r]})"
     if d.kind == "straight":

@@ -1,0 +1,15 @@
+{
+  "upstream_commit": "49effc5521e9110cdc3b345d5b050935d34aad55",
+  "runtime": {
+    "python": "3.12.14",
+    "torch": "2.5.1+cpu",
+    "numpy": "2.3.5",
+    "fastapi": "0.141.1",
+    "pydantic": "2.13.4"
+  },
+  "checkpoints": {
+    "checkpoints/murlan_policy.pt": "a88f449407542cdeff60e2c86629563939f630326e79301e7c9e9c7bff197448",
+    "checkpoints/training_resume.pt": "d7cc5367a63f1315c13b61e2d32487272f0b2b05812d92e4e27ed03d24849ae5",
+    "checkpoints/improved_policy.pt": "1c86b6070e24ef096a4e4b0f93e4f4c0104459824f656889e103af4900b236f9"
+  }
+}
