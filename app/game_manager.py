@@ -16,12 +16,16 @@ from murlan.evaluation import policy_action
 from murlan.baselines import choose_action
 from murlan.trajectory import HandTrajectory
 from .replay import ReplayStore
+from .player_names import new_player_names
 
 
 def card_to_str(card):
     if card >= 52:
         return "BJ" if card == 52 else "RJ"
     return RANKS[card_rank_i(card)] + SUITS[card_suit_i(card)]
+
+
+CARD_IDS = {card_to_str(card): card for card in range(54)}
 
 
 class MurlanBot:
@@ -67,6 +71,7 @@ class GameSession:
     mode: str
     learn: bool
     policy_id: str = ""
+    player_names: list = field(default_factory=list)
     done: bool = False
     step: int = 0
     trajectory: HandTrajectory = field(default_factory=HandTrajectory)
@@ -84,6 +89,7 @@ class GameManager:
         self.games = {}
         self.lock = threading.RLock()
         self.max_games, self.ttl = max_games, ttl
+        self.last_names = []
 
     def _session(self, gid):
         with self.lock:
@@ -95,7 +101,7 @@ class GameManager:
             session.touched = time.monotonic()
             return session
 
-    def new_game(self, seed=None, human_seat=0, mode="learn", learn=True):
+    def new_game(self, seed=None, human_seat=0, mode="learn", learn=True, previous_game_id=None):
         if human_seat not in range(4) or mode not in ("learn", "competitive"):
             raise ValueError("Invalid seat or mode")
         env = MurlanEnv(secrets.randbits(32) if seed is None else seed)
@@ -115,6 +121,11 @@ class GameManager:
                 del self.games[key]
             if len(self.games) >= self.max_games:
                 raise RuntimeError("Server is at game capacity; try again later")
+            previous = self.games.get(previous_game_id)
+            session.player_names = new_player_names(
+                human_seat, previous.player_names if previous else self.last_names
+            )
+            self.last_names = list(session.player_names)
             self.games[gid] = session
         with session.lock:
             self._autoplay(gid, session)
@@ -133,11 +144,17 @@ class GameManager:
         options = []
         for a in legal:
             d = action_desc(a)
+            ranks = [RANKS[r] for r in d.payload]
+            required_cards = []
+            if d.kind == "swap_give" and not any(card_rank_i(c) == d.payload[0] for c in e.hands[h]):
+                ranks = [RANKS[card_rank_i(e.hands[h][0])]]
+                required_cards = [card_to_str(e.hands[h][0])]
             options.append(
                 dict(
                     id=a,
                     kind=d.kind,
-                    ranks=[RANKS[r] for r in d.payload],
+                    ranks=ranks,
+                    required_cards=required_cards,
                     label=pretty_action(a),
                 )
             )
@@ -148,6 +165,8 @@ class GameManager:
             hand_number=e.hand_index + 1,
             current_player=e.current_player,
             human_seat=h,
+            player_names=list(s.player_names),
+            require_three_spades=e.require_three_spades,
             scores=list(e.scores),
             goal_target=e.goal_target,
             hand_sizes=[len(x) for x in e.hands],
@@ -178,12 +197,15 @@ class GameManager:
             learning_enabled=s.learn,
         )
 
-    def human_act(self, gid, action, revision=None, request_id=None):
+    def human_act(self, gid, action, revision=None, request_id=None, cards=None):
         s = self._session(gid)
         with s.lock:
+            if cards is not None and (not isinstance(cards, list) or any(not isinstance(c, str) or c not in CARD_IDS for c in cards)):
+                raise ValueError("Unknown selected card")
+            request = (action, revision, None if cards is None else tuple(sorted(cards)))
             if request_id and request_id in s.requests:
                 previous = s.requests[request_id]
-                if previous != (action, revision):
+                if previous != request:
                     raise ValueError("Request ID already used for a different action")
                 return self._state(gid, s)
             if revision is not None and revision != s.step:
@@ -197,15 +219,18 @@ class GameManager:
                 or not s.env.legal_mask(s.human_seat)[action]
             ):
                 raise ValueError("Illegal action")
-            self._step(gid, s, action, human=True)
+            card_ids = None if cards is None else [CARD_IDS[c] for c in cards]
+            if card_ids is not None:
+                s.env.validate_cards(action, card_ids)
+            self._step(gid, s, action, human=True, cards=card_ids)
             self._autoplay(gid, s)
             if request_id:
-                s.requests[request_id] = (action, revision)
+                s.requests[request_id] = request
                 if len(s.requests) > 128:
                     del s.requests[next(iter(s.requests))]
             return self._state(gid, s)
 
-    def _step(self, gid, s, action, human=False, stats=None):
+    def _step(self, gid, s, action, human=False, stats=None, cards=None):
         env = s.env
         p, hand = env.current_player, env.hand_index
         obs, legal = env.observe(p), env.legal_mask(p)
@@ -220,14 +245,17 @@ class GameManager:
                 p, obs, legal, action, logp, value, temperature=1.0, epsilon=0.03
             )
         before = list(env.hands[p])
-        _, _, rewards, done, info = env.step(action)
+        exact_cards = cards
+        _, _, rewards, done, info = env.step(action, cards=exact_cards)
         if s.learn:
             s.trajectory.reward(rewards)
         s.step += 1
         desc = action_desc(action)
         # Exact public action history, including every bot move between human turns.
         cards = []
-        if info.played and not info.hand_over:
+        if info.played and exact_cards is not None:
+            cards = [card_to_str(c) for c in exact_cards]
+        elif info.played and not info.hand_over:
             cards = [card_to_str(c) for c in before if c not in env.hands[p]]
         elif info.played:
             need = (

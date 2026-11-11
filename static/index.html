@@ -1,39 +1,78 @@
 <!doctype html>
 <html lang="sq">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#102a25"><meta name="description" content="Luaj Murlan kundër tre botëve. Çdo lëvizje ndihmon të ndërtojmë lojtarë më të mirë.">
-<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-<title>Murlan · Tavolina që mëson</title>
-<link rel="stylesheet" href="/static/style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#102a25">
+  <meta name="description" content="Luaj Murlan kundër tre robotëve. Zgjidh letrat dhe hidh kombinimin tënd në tavolinë.">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <title>Murlan · Luaj kundër tre robotëve</title>
+  <link rel="stylesheet" href="/static/style.css?v=cards-2">
 </head>
 <body>
 <div class="shell">
-<header class="header"><a class="brand" href="/" aria-label="Murlan"><span class="brand-mark">♠</span><span>MURLAN<small>TAVOLINA QË MËSON</small></span></a><div class="header-actions"><span class="live"><i></i> TI + 3 BOTË</span><button class="text-button" id="rulesBtn">Si luhet</button><button class="button subtle" id="newBtn">Lojë e re <span>↗</span></button></div></header>
-<main>
-<div class="intro"><div><span class="eyebrow">NJË LOJË E NJOHUR. KUNDËRSHTARË QË MËSOJNË.</span><h1>Radha jote.</h1><p>Luaj dorën tënde. Ndihmo botët të luajnë më mirë.</p></div><div class="match-info"><span id="handNumber">DORA 01</span><strong><span id="goal">21</span><small> pikë për të fituar</small></strong></div></div>
-<div class="layout">
-<section class="game-panel" aria-label="Tavolina e lojës">
-<div class="table-toolbar"><span class="table-label"><i></i> TAVOLINA 01</span><span id="modelLabel">Duke u lidhur…</span></div>
-<div class="felt">
-<div class="table-line"></div>
-<div class="opponent north" id="player2"></div><div class="opponent west" id="player1"></div><div class="opponent east" id="player3"></div>
-<div class="table-center"><span class="eyebrow" id="trickLabel">TAVOLINA ËSHTË E LIRË</span><div class="trick-cards" id="trickCards"><span class="empty-suit">♠</span></div><p id="tableHint">Përgatitu për një dorë të re.</p></div>
-<div class="your-position"><span class="avatar human">TI</span><span id="yourScore">0 pikë</span></div>
+  <header class="header">
+    <a class="brand" href="/" aria-label="Murlan"><span class="brand-mark">♠</span><span>MURLAN</span></a>
+    <div class="header-actions"><button class="text-button" id="rulesBtn">Rregullat</button><button class="button subtle" id="newBtn">Lojë e re</button></div>
+  </header>
+  <main>
+    <div class="intro"><div><h1>Luaj Murlan.</h1><p>Ti dhe tre kundërshtarë.</p></div><div class="match-info"><span id="handNumber">DORA 1</span><strong><span id="goal">21</span><small> pikë për të fituar</small></strong></div></div>
+    <div class="layout">
+      <section class="game-panel" aria-label="Tavolina e Murlanit">
+        <div class="table-toolbar"><span class="table-label">MURLAN</span><span id="modelLabel">Po lidhemi me lojën…</span></div>
+        <div class="felt">
+          <div class="table-line"></div>
+          <div class="opponent north" id="player2"></div><div class="opponent west" id="player1"></div><div class="opponent east" id="player3"></div>
+          <div class="table-center"><span class="eyebrow" id="trickLabel">Në tavolinë</span><div class="trick-cards" id="trickCards"><span class="empty-suit">♠</span></div><p id="tableHint">Loja po nis…</p></div>
+          <div class="your-position"><span class="avatar human">TI</span><span id="yourScore">0 pikë</span></div>
+        </div>
+        <div class="hand-panel">
+          <div class="hand-heading"><h2>Letrat e tua <span id="cardCount">0 letra</span></h2><span class="turn-status" id="turnStatus" role="status" aria-live="polite">Loja po nis…</span></div>
+          <p class="action-help" id="actionHelp">Kliko letrat që do të luash.</p>
+          <div class="hand" id="hand" role="group" aria-label="Letrat e tua"></div>
+          <p id="selectionHint" role="status" aria-live="polite">Zgjidh letrat që do të hedhësh në tavolinë.</p>
+          <div class="play-bar"><button class="button pass" id="passBtn" disabled>Pas</button><span id="selectedCount">Asnjë letër e zgjedhur</span><button class="button primary" id="playBtn" disabled>Luaj letrat <span>→</span></button></div>
+          <div id="error" role="alert" hidden></div>
+        </div>
+      </section>
+      <aside>
+        <section class="side-card learning">
+          <h2>Ndihmo robotët të përmirësohen</h2>
+          <p>Nëse e lejon, lëvizjet e tua përdoren për të trajnuar robotët. Versioni i ri përdoret vetëm pasi të kalojë testet.</p>
+          <div class="settings">
+            <label><input id="learnToggle" type="checkbox" checked> <span>Lejo përdorimin e lëvizjeve të mia për trajnim</span></label>
+            <label class="mode-setting" for="modeSelect">Mënyra e lojës</label>
+            <select id="modeSelect"><option value="learn">Stërvitje</option><option value="competitive">Sfidë</option></select>
+            <p class="mode-help" id="modeHelp">Robotët provojnë herë pas here lëvizje të ndryshme.</p>
+            <small>Këto cilësime zbatohen në lojën e ardhshme.</small>
+          </div>
+          <details class="training-details"><summary>Trajnimi i robotëve</summary>
+            <div class="learning-stats"><div><strong id="humanMoves">0</strong><span>Lëvizje të ruajtura</span></div><div><strong id="completedHands">0</strong><span>Duar të përfunduara</span></div></div>
+            <div class="training-status"><i id="learningDot"></i><span id="learningStatus">Në pritje të lojërave</span></div>
+            <div class="progress-track"><div id="learningProgress"></div></div><small id="learningDetail">Versionet e reja testohen para se të përdoren në lojë.</small>
+          </details>
+        </section>
+        <section class="side-card history"><div class="section-heading"><h2>Lëvizjet e fundit</h2></div><ol id="history"><li class="empty-history">Ende nuk është luajtur asnjë letër.</li></ol></section>
+      </aside>
+    </div>
+    <footer><span>54 letra. Katër lojtarë.</span><span>MURLAN <span class="footer-suit">♠</span></span></footer>
+  </main>
 </div>
-<div class="hand-panel"><div class="hand-heading"><h2>Dora jote <span id="cardCount">0 letra</span></h2><span class="turn-status" id="turnStatus" role="status" aria-live="polite">Duke nisur…</span></div><div class="hand" id="hand"></div>
-<div class="decision-heading"><span id="actionHelp">Zgjidh kombinimin që dëshiron të luash.</span><span id="selectedCount"></span></div><div class="options" id="options" role="group" aria-label="Kombinimet e lejuara"></div>
-<div class="play-bar"><button class="button pass" id="passBtn" disabled>Kalo radhën</button><span id="selectionHint">Zgjidh një kombinim</span><button class="button primary" id="playBtn" disabled>Luaj letrat <span>→</span></button></div>
-<div id="error" role="alert" hidden></div></div>
-</section>
-<aside>
-<section class="side-card learning"><div class="section-heading"><span class="eyebrow">MËSOJMË NGA LOJA</span><span class="status-dot"></span></div><h2>Çdo lëvizje ka vlerë.</h2><p>Lëvizjet ruhen menjëherë. Pas dorës, rezultati ndihmon në stërvitje. Botët ndryshojnë vetëm kur versioni i ri kalon vlerësimin.</p><div class="learning-stats"><div><strong id="humanMoves">0</strong><span>lëvizje njerëzore</span></div><div><strong id="completedHands">0</strong><span>duar të përfunduara</span></div></div><div class="training-status"><i id="learningDot"></i><span id="learningStatus">Në pritje të lojërave</span></div><div class="progress-track"><div id="learningProgress"></div></div><small id="learningDetail">Versionet e reja vlerësohen para se të luajnë.</small><div class="settings"><label><input id="learnToggle" type="checkbox" checked> Përdor lojën time për stërvitje</label><label class="mode-setting">Stili i botëve<select id="modeSelect"><option value="learn">Eksplorim i lehtë</option><option value="competitive">Konkurrues</option></select></label><small>Ndryshimet vlejnë për lojën e re.</small></div></section>
-<section class="side-card history"><div class="section-heading"><h2>Lëvizjet e fundit</h2><span id="eventCount">LIVE</span></div><ol id="history"><li class="empty-history">Historia e lojës shfaqet këtu.</li></ol></section>
-</aside>
-</div>
-<footer><span>54 letra. Katër lojtarë. Një tavolinë.</span><span>MURLAN <span class="footer-suit">♠</span> LEARNING TABLE</span></footer>
-</main>
-</div>
-<dialog id="rulesDlg"><div class="dialog-heading"><span class="eyebrow">SI LUHET MURLAN</span><button id="closeRules" class="text-button" aria-label="Mbyll">✕</button></div><h2>Liro dorën. Merr pikët.</h2><p>Luajnë katër lojtarë me 52 letra dhe dy xhola. I pari që mbaron letrat merr 3 pikë; të tjerët marrin 2, 1 dhe 0.</p><ul><li>Renditja: 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A, 2, xholi i zi, xholi i kuq.</li><li>Luaj teke, dyshe, treshe, katërshe ose kolor me të paktën 5 letra. A–2–3–4–5 është kolori më i ulët.</li><li>Përgjigju me të njëjtin kombinim, me vlerë më të lartë. Katërshja mund çdo kombinim tjetër.</li><li>Pasi kalon, pret derisa të pastrohet tavolina. Ai që hodhi i fundit hap përsëri; nëse ka mbaruar, hap lojtari aktiv pas tij.</li><li>Dora e parë nis me 3♠. Në duart e tjera, i pari i jep të fundit një letër 3–10 dhe merr letrën më të lartë. Nëse i fundit ka të dy xholat, nuk ka shkëmbim.</li><li>Objektivi është 21 pikë. Nëse disa e arrijnë në të njëjtën dorë, vazhdohet në 31, 41 e 51. Në kufirin 51, fiton kryesuesi i vetëm; barazimi vazhdon.</li></ul><p class="muted">Botët shohin vetëm letrat e tyre dhe lëvizjet publike. Në mënyrën konkurruese, zgjedhin veprimin me probabilitetin më të lartë.</p></dialog>
-<script src="/static/app.js" defer></script>
-</body></html>
+<dialog id="rulesDlg">
+  <div class="dialog-heading"><h2>Rregullat e lojës</h2><button id="closeRules" class="text-button">Mbyll</button></div>
+  <p>Qëllimi është të mbarosh letrat para të tjerëve. Luajnë katër lojtarë, me 52 letra dhe dy xhola.</p>
+  <ul>
+    <li>Letrat renditen nga më e ulëta te më e larta: 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A, 2, xholi i zi dhe xholi i kuq.</li>
+    <li>Mund të hedhësh një letër, dyshe, treshe, katërshe ose kolor me 5 deri në 12 letra. Kolori ka letra me vlera radhazi, pavarësisht simbolit. A–2–3–4–5 është kolori më i ulët.</li>
+    <li>Për të vazhduar, hidh të njëjtin lloj kombinimi, me të njëjtin numër letrash dhe me vlerë më të lartë. Katërshja mund edhe kombinime të llojeve të tjera.</li>
+    <li>Nëse thua pas, nuk luan më derisa të pastrohet tavolina. Pastaj hap lojtari që hodhi i fundit. Nëse i ka mbaruar letrat, hap lojtari pas tij që ka ende letra.</li>
+    <li>Dora e parë hapet me 3♠. Në duart e tjera, fituesi i dorës së kaluar i jep të fundit një letër nga 3 deri në 10 dhe merr letrën e tij më të lartë. Nëse nuk ka letër nga 3 deri në 10, jep më të ultën. Nëse i fundit ka të dy xholat, nuk bëhet shkëmbim.</li>
+    <li>Pas shkëmbimit, hap lojtari që doli i fundit. Kur nuk bëhet shkëmbim sepse ai ka të dy xholat, hap fituesi i dorës së kaluar.</li>
+    <li>I pari merr 3 pikë, i dyti 2, i treti 1 dhe i fundit 0. Loja nis me objektiv 21 pikë. Nëse disa lojtarë e arrijnë në të njëjtën dorë, objektivi kalon në 31, pastaj 41 dhe 51. Në 51 pikë, fiton ai që ka më shumë pikë; në barazim, loja vazhdon.</li>
+  </ul>
+  <p class="muted">Robotët nuk i shohin letrat e tua. Ata shohin vetëm letrat e tyre dhe ato që janë luajtur.</p>
+</dialog>
+<script src="/static/selection.js?v=cards-2" defer></script>
+<script src="/static/app.js?v=cards-2" defer></script>
+</body>
+</html>

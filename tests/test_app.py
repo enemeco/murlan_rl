@@ -228,7 +228,8 @@ def test_checkpoint_identity_prevents_off_policy_version_collisions(manager):
     assert manager.replay.demonstrations()  # human data remains useful off-policy
 
 
-def test_full_human_vs_three_bot_match_finishes(manager):
+@pytest.mark.parametrize("manual", [False, True])
+def test_full_human_vs_three_bot_match_finishes(manager, manual):
     gid = manager.new_game(seed=33)
     for turn in range(1800):
         state = manager.get_state(gid)
@@ -238,7 +239,97 @@ def test_full_human_vs_three_bot_match_finishes(manager):
             assert manager.replay.stats()["completed_hands"] >= 7
             return
         assert state["your_turn"]
-        manager.human_act(
-            gid, human_action(manager, gid), state["revision"], f"full-match-{turn}"
-        )
+        action = human_action(manager, gid)
+        cards = None
+        if manual:
+            option = next(a for a in state['actions'] if a['id'] == action)
+            sizes = {'pass': 0, 'single': 1, 'pair': 2, 'triple': 3, 'quad': 4, 'swap_give': 1}
+            ranks = option['ranks'] if option['kind'] == 'straight' else option['ranks'] * sizes[option['kind']]
+            available = list(reversed(state['your_hand']))
+            cards = []
+            for rank in ranks:
+                if rank == '3' and state['require_three_spades'] and '3S' in available:
+                    card = '3S'
+                elif option['required_cards']:
+                    card = option['required_cards'][0]
+                else:
+                    card = next(c for c in available if (c if c in ('BJ','RJ') else c[:-1]) == rank)
+                cards.append(card)
+                available.remove(card)
+        manager.human_act(gid, action, state["revision"], f"full-match-{turn}", cards=cards)
     pytest.fail("Human-versus-three-bot match did not terminate")
+
+
+def rig_human_hand(manager, gid, hand):
+    e = manager.games[gid].env
+    rest = [c for c in range(54) if c not in hand]
+    e.hands = [list(hand), rest[::3], rest[1::3], rest[2::3]]
+    e.current_player = 0
+    e.require_three_spades = False
+    e.phase = 'play'
+    e.current_combo = None
+    e.passed = [False] * 4
+    e.finished = [False] * 4
+    e.finish_order = []
+    e.last_player = None
+    return e
+
+
+def test_physical_selection_logs_exact_cards_and_is_idempotent(manager, monkeypatch):
+    gid = manager.new_game(seed=14)
+    monkeypatch.setattr(manager, '_autoplay', lambda *args: None)
+    rig_human_hand(manager, gid, [4, 5, 6, 7, 8])
+    state = manager.get_state(gid)
+    count = manager.replay.stats()['human_moves']
+    with pytest.raises(ValueError):
+        manager.human_act(gid, 17, state['revision'], 'wrong-cards', cards=['4C', '5C'])
+    assert manager.replay.stats()['human_moves'] == count
+    result = manager.human_act(gid, 17, state['revision'], 'physical-pair', cards=['4H', '4S'])
+    assert result['events'][-1]['cards'] == ['4H', '4S']
+    assert result['trick']['cards'] == ['4H', '4S']
+    assert result['your_hand'] == ['4C', '4D', '5C']
+    repeated = manager.human_act(gid, 17, state['revision'], 'physical-pair', cards=['4S', '4H'])
+    assert repeated['revision'] == result['revision']
+    assert manager.replay.stats()['human_moves'] == count + 1
+    with pytest.raises(ValueError, match='different action'):
+        manager.human_act(gid, 17, state['revision'], 'physical-pair', cards=['4C', '4D'])
+
+
+def test_albanian_names_persist_and_new_match_changes_them(manager):
+    from app.player_names import ALBANIAN_NAMES
+    gid = manager.new_game(seed=23, human_seat=2)
+    names = manager.get_state(gid)['player_names']
+    assert names[2] == 'Ti'
+    assert len(set(names)) == 4
+    robots = set(names) - {'Ti'}
+    assert robots <= set(ALBANIAN_NAMES)
+    finish_a_hand(manager, gid)
+    assert manager.get_state(gid)['player_names'] == names
+    # Another concurrent game must not affect the new names for this player's next match.
+    manager.new_game(seed=25)
+    next_gid = manager.new_game(seed=24, human_seat=2, previous_game_id=gid)
+    next_names = manager.get_state(next_gid)['player_names']
+    assert next_names[2] == 'Ti'
+    assert not robots.intersection(set(next_names) - {'Ti'})
+
+
+def test_exact_cards_api_and_exchange_fallback(tmp_path, monkeypatch):
+    app = create_app(model_path='checkpoints/murlan_policy.pt', replay_path=str(tmp_path/'cards.db'), online=False)
+    with TestClient(app) as client:
+        state = client.post('/api/new', json={}).json()
+        gid = state['game_id']
+        manager = app.state.manager
+        monkeypatch.setattr(manager, '_autoplay', lambda *args: None)
+        e = rig_human_hand(manager, gid, [32, 33, 44])
+        e.phase, e.swap_first, e.swap_last, e.pending_starter = 'swap', 0, 1, 1
+        state = client.get(f'/api/state/{gid}').json()
+        option = state['actions'][0]
+        assert option['ranks'] == ['J']
+        assert option['required_cards'] == ['JC']
+        payload = dict(action=option['id'], revision=state['revision'], request_id='exchange-test', cards=['JD'])
+        assert client.post(f'/api/act/{gid}', json=payload).status_code == 409
+        payload['cards'] = ['JC']
+        result = client.post(f'/api/act/{gid}', json=payload)
+        assert result.status_code == 200
+        assert 'JC' not in result.json()['your_hand']
+        assert 32 in e.hands[1]

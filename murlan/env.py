@@ -17,6 +17,7 @@ Interpretation choices (easy to change):
 from __future__ import annotations
 
 import random
+from collections import Counter
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -310,7 +311,7 @@ class MurlanEnv:
         return mask
 
     def step(
-        self, action: int
+        self, action: int, cards: Optional[List[int]] = None
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, bool, StepInfo]:
         if self.match_over:
             raise ValueError("Match has ended")
@@ -322,6 +323,8 @@ class MurlanEnv:
             raise ValueError("Action must be an integer")
         if not 0 <= action < ACTION_DIM or not legal[action]:
             raise ValueError(f"Illegal action {action} for player {p}")
+        if cards is not None:
+            self.validate_cards(action, cards)
         self.last_actions[p] = int(action)
 
         reward_vec = np.zeros(4, dtype=np.float32)
@@ -335,7 +338,11 @@ class MurlanEnv:
             desc = action_desc(action)
             give_rank = desc.payload[0]
 
-            give_card = self._pop_one_card_by_rank(self.swap_first, give_rank)
+            if cards is not None:
+                give_card = cards[0]
+                self.hands[self.swap_first].remove(give_card)
+            else:
+                give_card = self._pop_one_card_by_rank(self.swap_first, give_rank)
             if give_card is None:
                 give_card = self._pop_lowest_card(self.swap_first)
 
@@ -362,7 +369,7 @@ class MurlanEnv:
             if desc.kind == "pass":
                 self.passed[p] = True
             else:
-                played_combo = self._apply_play_action(p, desc)
+                played_combo = self._apply_play_action(p, desc, cards)
                 # No pass penalty or per-card reward: optimize finishing position.
                 if played_combo.kind == "straight":
                     for rank in played_combo.ranks:
@@ -533,8 +540,35 @@ class MurlanEnv:
         )
         return self.hands[p].pop(hi_idx)
 
-    def _apply_play_action(self, p: int, desc: ActionDesc) -> Combo:
+    def validate_cards(self, action: int, cards: List[int]) -> None:
+        """Validate exact physical cards before mutation or replay recording."""
+        p = self.current_player
+        if not isinstance(cards, (list, tuple)) or any(
+            isinstance(c, (bool, np.bool_)) or not isinstance(c, (int, np.integer))
+            or c not in self.hands[p] for c in cards
+        ):
+            raise ValueError("Selected cards are not in your hand")
+        if len(set(cards)) != len(cards):
+            raise ValueError("A card cannot be selected twice")
+        desc = action_desc(action)
+        if desc.kind == "swap_give" and not any(card_rank_i(c) in SWAP_RANKS for c in self.hands[p]):
+            if list(cards) != [self.hands[p][0]]:
+                raise ValueError("Select your lowest card for the exchange")
+            return
+        counts = {"pass": 0, "single": 1, "pair": 2, "triple": 3, "quad": 4, "swap_give": 1}
+        expected = list(desc.payload) if desc.kind == "straight" else list(desc.payload) * counts[desc.kind]
+        if Counter(map(card_rank_i, cards)) != Counter(expected):
+            raise ValueError("Selected cards do not match the action")
+        if self.phase == "play" and self.require_three_spades and desc.kind != "pass" and THREE_OF_SPADES_ID not in cards:
+            raise ValueError("The opening play must include 3S")
+
+    def _apply_play_action(self, p: int, desc: ActionDesc, cards=None) -> Combo:
         kind = desc.kind
+        if cards is not None:
+            for card in cards:
+                self.hands[p].remove(card)
+            ranks = tuple(sorted(desc.payload)) if kind == "straight" else desc.payload
+            return Combo(kind=kind, ranks=ranks)
 
         if kind in {"single", "pair", "triple", "quad"}:
             rank_i = desc.payload[0]

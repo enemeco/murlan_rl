@@ -16,7 +16,7 @@ python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-Open **http://localhost:8000**. The Albanian interface shows your hand, legal combinations, every bot move, scores, and learning activity. Select a combination and press **Luaj letrat**; **Kalo radhën** passes. Passing removes you from that trick until the table clears. Reloading resumes your current game while the server process remains alive.
+Open **http://localhost:8000**. Click or tap the cards themselves to select them; click again to deselect. **Luaj letrat** is enabled only when those exact cards form a legal move on your turn. There is no suggested-combination menu. **Pas** passes until the table clears; **Jep letrën** confirms a card exchange. The interface uses Albanian wording with **robotët** throughout. Three distinct Albanian names are assigned per match, remain stable across hands and reloads, and change for the next match. Reloading resumes your current game while the server process remains alive.
 
 The app seeds `data/champion.pt` from `checkpoints/improved_policy.pt` on its first start. If the improved checkpoint is absent, it uses the original `checkpoints/murlan_policy.pt`. Missing both checkpoints starts strategic rule-based bots, and the candidate learner can bootstrap a network from demonstrations. Original checkpoint weights are never overwritten by default.
 
@@ -110,7 +110,7 @@ See [the benchmark report](reports/BENCHMARK.md) for the actual included checkpo
 5. A candidate gets a small PPO update plus a small supervised update from a random sample of human history. Every move is retained; each update samples a bounded batch rather than applying a gradient after every click. Unfinished-hand examples receive a smaller provisional weight.
 6. The candidate plays paired full-match evaluations against the current champion's benchmark results. Accepted candidates are saved and used starting with the next hand; rejected candidates leave the bots unchanged. Old-policy PPO rows are retired, while human examples remain useful.
 
-**Konkurrues** selects greedy bot actions; those actions never enter PPO. The training checkbox controls collection for the next game. Turning off collection prevents both human and bot data from that game being stored. `MURLAN_ONLINE_LEARNING=0` disables automatic updates but still allows collection for offline training.
+**Stërvitje** uses sampled actions with exploration. **Sfidë** selects greedy bot actions; those actions never enter PPO. The training checkbox controls collection for the next game. Turning off collection prevents both human and bot data from that game being stored. `MURLAN_ONLINE_LEARNING=0` disables automatic updates but still allows collection for offline training.
 
 ## Persistence and deployment
 

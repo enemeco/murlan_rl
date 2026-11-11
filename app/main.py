@@ -22,12 +22,14 @@ class NewGameRequest(BaseModel):
     mode: str = "learn"
     learning_enabled: bool = True
     human_seat: int = Field(default=0, ge=0, le=3, strict=True)
+    previous_game_id: str | None = Field(default=None, max_length=64)
 
 
 class ActRequest(BaseModel):
     action: int = Field(ge=0, lt=ACTION_DIM, strict=True)
     revision: int = Field(ge=0, strict=True)
     request_id: str = Field(min_length=8, max_length=80)
+    cards: list[str] | None = Field(default=None, max_length=14)
 
 
 def create_app(model_path=None, replay_path=None, online=None):
@@ -107,6 +109,7 @@ def create_app(model_path=None, replay_path=None, online=None):
             human_seat=req.human_seat,
             mode=req.mode,
             learn=req.learning_enabled,
+            previous_game_id=req.previous_game_id,
         )
         return m.get_state(gid)
 
@@ -117,7 +120,7 @@ def create_app(model_path=None, replay_path=None, online=None):
     @app.post("/api/act/{gid}")
     def act(gid: str, req: ActRequest):
         return call(
-            app.state.manager.human_act, gid, req.action, req.revision, req.request_id
+            app.state.manager.human_act, gid, req.action, req.revision, req.request_id, cards=req.cards
         )
 
     @app.delete("/api/game/{gid}")
