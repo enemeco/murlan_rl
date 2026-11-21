@@ -22,11 +22,31 @@ test('no move can be selected out of turn or after the match',()=>{
   assert.equal(matchAction({...state,done:true},['4C']),null);
 });
 test('exchange fallback requires the exact lowest card',()=>{
-  const exchange={...state,phase:'swap',legal_actions:[92],actions:[{id:92,kind:'swap_give',ranks:['4'],required_cards:['4C']}]};
-  assert.equal(matchAction(exchange,['4C']).id,92);
+  const exchange={...state,phase:'swap',legal_actions:[102],actions:[{id:102,kind:'swap_give',ranks:['4'],required_cards:['4C']}]};
+  assert.equal(matchAction(exchange,['4C']).id,102);
   assert.equal(matchAction(exchange,['4H']),null);
 });
 test('special low straight works in any selection order',()=>{
   const low={...state,legal_actions:[91],actions:[{id:91,kind:'straight',ranks:['A','2','3','4','5']}]};
   assert.equal(matchAction(low,['3S','AC','4H','2C','5C']).id,91);
+});
+test('2-3-4-5-6 is selectable only when the server permits that Kolor',()=>{
+  const low={...state,legal_actions:[92],actions:[{id:92,kind:'straight',ranks:['2','3','4','5','6']}]};
+  const cards=['6C','3S','2C','4H','5C'];
+  assert.equal(matchAction(low,cards).id,92);
+  assert.equal(matchAction({...low,legal_actions:[0]},cards),null);
+  assert.equal(matchAction(low,['3S','4H','5C','6C','7C']),null);
+});
+test('longer 2-low Kolors through the full 13-card run accept manual selection',()=>{
+  const allRanks=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  for(let length=6;length<=13;length++){
+    const ranks=allRanks.slice(0,length);
+    const cards=ranks.map(r=>r==='3'?'3S':r+'C');
+    const id=92+length-5;
+    const long={...state,your_hand:[...cards,'RJ'],require_three_spades:true,
+      legal_actions:[id],actions:[{id,kind:'straight',ranks}]};
+    assert.equal(matchAction(long,[...cards].reverse()).id,id);
+    assert.equal(matchAction(long,cards.slice(1)),null);
+    assert.equal(matchAction({...long,legal_actions:[0]},cards),null);
+  }
 });

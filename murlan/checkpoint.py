@@ -1,4 +1,4 @@
-"""Versioned, atomic checkpoints; explicit migration of the original 43 inputs."""
+"""Atomic checkpoints with observation and Kolor action-space migration."""
 
 from pathlib import Path
 import os
@@ -7,8 +7,9 @@ import hashlib
 import torch
 from .env import MurlanEnv
 from .model import PolicyValueNet
+from .actions import ACTION_DIM, STRAIGHT_BASE, STRAIGHTS, SWAP_BASE, SWAP_N, action_desc
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 
 
 def policy_fingerprint(model):
@@ -33,6 +34,31 @@ def load_model(path, device="cpu"):
         weight = torch.zeros(hidden, dim, device=device)
         weight[:, :43] = old["backbone.0.weight"]
         old = dict(old, **{"backbone.0.weight": weight})
+    old_action_dim = old["pi.weight"].shape[0]
+    if old_action_dim != ACTION_DIM:
+        if old_action_dim not in (100, 101) or ACTION_DIM != 109:
+            raise ValueError(f"Unsupported action schema: {old_action_dim}")
+        # Accept both the original model and the first five-card-only fix.
+        # Existing straight IDs stay put; the eight swap outputs move to 101..108.
+        # Warm-start new outputs from related runs; rebuild shared action features.
+        old = dict(old)
+        old_swap_base = old_action_dim - SWAP_N
+        for key in ("pi.weight", "pi.bias"):
+            source = old[key]
+            expanded = source.new_empty((ACTION_DIM, *source.shape[1:]))
+            expanded[:old_swap_base] = source[:old_swap_base]
+            expanded[SWAP_BASE:] = source[old_swap_base:]
+            for action in range(old_swap_base, SWAP_BASE):
+                length = len(action_desc(action).payload)
+                if length == 5:
+                    low_ace = STRAIGHT_BASE + STRAIGHTS.index((11, 12, 0, 1, 2))
+                    expanded[action] = (source[STRAIGHT_BASE] + source[low_ace]) / 2
+                else:
+                    # Use the 3-low run of equal length, or the 12-card run
+                    # for the new 13-card action, which had no equal-length peer.
+                    peer = STRAIGHT_BASE + STRAIGHTS.index(tuple(range(min(length, 12))))
+                    expanded[action] = source[peer]
+            old[key] = expanded
     missing, unexpected = model.load_state_dict(old, strict=False)
     if set(missing) - {"action_query.weight"} or unexpected:
         raise ValueError(f"Incompatible checkpoint: {missing}, {unexpected}")
@@ -48,6 +74,7 @@ def save_checkpoint(path, model, **metadata):
         obs_dim=model.obs_dim,
         hidden=model.hidden,
         schema_version=SCHEMA_VERSION,
+        action_dim=ACTION_DIM,
         **metadata,
     )
     fd, temp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)

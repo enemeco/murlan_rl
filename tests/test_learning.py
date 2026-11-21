@@ -8,7 +8,7 @@ from murlan.env import MurlanEnv
 from murlan.checkpoint import load_model, save_checkpoint
 from murlan.training import LeagueCollector
 from murlan.evaluation import promotion_decision
-from murlan.actions import ACTION_DIM
+from murlan.actions import ACTION_DIM, SWAP_BASE
 
 torch.set_num_threads(1)
 
@@ -65,7 +65,12 @@ def test_legacy_checkpoint_migration_preserves_policy_exactly():
             )
         )
     expected = torch.nn.functional.linear(x, weights["pi.weight"], weights["pi.bias"])
-    torch.testing.assert_close(model(obs)[0], expected, atol=1e-5, rtol=1e-5)
+    logits = model(obs)[0]
+    # Nine 2-low Kolors are inserted before the original eight swap actions.
+    preserved = torch.cat([logits[:, :92], logits[:, SWAP_BASE:]], dim=1)
+    torch.testing.assert_close(preserved, expected, atol=1e-5, rtol=1e-5)
+    torch.testing.assert_close(logits[:, 92], (expected[:, 55] + expected[:, 91]) / 2,
+                               atol=1e-5, rtol=1e-5)
 
 
 def test_rollouts_and_ppo_update_are_finite_and_checkpoint_roundtrips(tmp_path):

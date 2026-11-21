@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from murlan.checkpoint import load_model, save_checkpoint
+from murlan.actions import ACTION_DIM
 from murlan.env import MurlanEnv
 from murlan.model import PolicyValueNet
 from murlan.ppo import PPOConfig, PPOTrainer
@@ -31,7 +32,7 @@ def main():
     p.add_argument("--warmstart-epochs", type=int, default=4)
     p.add_argument("--init", help="Initialize/migrate a policy; reset optimizer")
     p.add_argument(
-        "--resume", help="Resume a v2 training checkpoint including optimizer"
+        "--resume", help="Resume a current-action-schema checkpoint including optimizer"
     )
     p.add_argument("--human-db", help="Optional SQLite replay collected by the web app")
     p.add_argument("--output-dir", default="runs/league")
@@ -66,6 +67,11 @@ def main():
     else:
         model = PolicyValueNet(len(MurlanEnv().reset()[0])).to(args.device)
     if args.resume:
+        if ckpt["model"]["pi.weight"].shape[0] != ACTION_DIM:
+            p.error(
+                "This checkpoint predates the Kolor correction. Use --init instead "
+                "of --resume to migrate its weights and start a fresh optimizer."
+            )
         if "optimizer" not in ckpt:
             p.error(
                 "Resume requires a training checkpoint; use --init for legacy/serving models"

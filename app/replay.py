@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import sqlite3
 import numpy as np
+from murlan.actions import ACTION_DIM
 
 
 class ReplayStore:
@@ -102,7 +103,12 @@ class ReplayStore:
         # Bounded random sample across the full history, including unfinished hands.
         rng = np.random.default_rng(seed)
         with self.connect() as db:
-            ids = [r[0] for r in db.execute("SELECT id FROM actions WHERE human=1")]
+            # Legacy masks/actions describe the 100- or 101-action Kolor rules.
+            # Retain that history, but train only on the current 109-action schema.
+            ids = [r[0] for r in db.execute(
+                "SELECT id FROM actions WHERE human=1 AND json_array_length(legal)=?",
+                (ACTION_DIM,),
+            )]
             if not ids:
                 return []
             chosen = rng.choice(ids, min(limit, len(ids)), replace=False).tolist()

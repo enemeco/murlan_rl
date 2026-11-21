@@ -21,5 +21,6 @@ for a in range(ACTION_DIM):
         ACTION_COUNTS[a, desc.payload[0]] = size
         rank = desc.payload[0]
     ACTION_FEATURES[a, 7:22] = ACTION_COUNTS[a] / 4.0
+    # Keep existing learned feature scaling; the new 13-card run is 13/12.
     ACTION_FEATURES[a, 22] = ACTION_COUNTS[a].sum() / 12.0
     ACTION_FEATURES[a, 23] = rank / 14.0

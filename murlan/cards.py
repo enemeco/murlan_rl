@@ -87,6 +87,18 @@ def counts_by_rank(cards: List[int]) -> List[int]:
     return counts
 
 
+def straight_primary_rank(seq: Tuple[int, ...]) -> int:
+    """End rank in Kolor order, independent of the stored/selected card order."""
+    canonical = tuple(sorted(seq))
+    if canonical == (0, 1, 2, 11, 12):  # A-2-3-4-5
+        return RANK_TO_I["5"]
+    if canonical[-1] == RANK_TO_I["2"]:
+        # In every remaining valid Kolor containing 2, it is the low/start
+        # card, not the high/end card. This includes the full 2-through-A run.
+        return canonical[-2]
+    return canonical[-1]
+
+
 @dataclass(frozen=True)
 class Combo:
     """A played combination.
@@ -112,12 +124,9 @@ class Combo:
         """Comparison key.
 
         - For single/pair/triple/quad: that rank
-        - For straight: highest rank in the straight
-          Special low straight A-2-3-4-5 is represented canonically as (0,1,2,11,12)
-          but compares as ending at 5 (rank index 2).
+        - For straight: its end rank in Kolor order. A-2-3-4-5 ends at 5;
+          runs starting at 2 end at their last card, from 6 through A.
         """
         if self.kind == "straight":
-            if self.ranks == (0, 1, 2, 11, 12):
-                return 2
-            return self.ranks[-1]
+            return straight_primary_rank(self.ranks)
         return self.ranks[0]

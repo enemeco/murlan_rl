@@ -9,7 +9,8 @@ RL-friendly:
 - turn-based (one player acts)
 
 Interpretation choices (easy to change):
-- Special low straight only as A-2-3-4-5 (length=5).
+- Runs starting at 2 have 5..13 cards, up to 2-3-...-K-A; also allow A-2-3-4-5.
+- A straight response must be the immediately following sequence of equal length.
 - Deal all 54 cards round-robin (two players get 14).
 - If previous 1st has no card in 3..10 to swap, they give their lowest card.
 """
@@ -123,6 +124,7 @@ class MurlanEnv:
             trick_size = np.array([0.0], dtype=np.float32)
             trick_val = np.array([0.0], dtype=np.float32)
         else:
+            # Retain legacy scaling for checkpoint compatibility; 13 cards is 13/12.
             trick_size = np.array([self.current_combo.size / 12.0], dtype=np.float32)
             trick_val = np.array(
                 [self.current_combo.primary_rank / 14.0], dtype=np.float32
@@ -229,8 +231,7 @@ class MurlanEnv:
                 mask[a] = True
 
         def can_play_straight(seq: Tuple[int, ...]) -> bool:
-            needed = [11, 12, 0, 1, 2] if seq == (11, 12, 0, 1, 2) else list(seq)
-            return all(counts[r] >= 1 for r in needed)
+            return all(counts[r] >= 1 for r in seq)
 
         # lead
         if self.current_combo is None:
@@ -300,7 +301,7 @@ class MurlanEnv:
                     continue
                 if not can_play_straight(seq):
                     continue
-                if straight_primary_rank(seq) > cur_val:
+                if straight_primary_rank(seq) == cur_val + 1:
                     mask[STRAIGHT_BASE + i] = True
 
         # any quad beats any non-quad
@@ -612,10 +613,6 @@ class MurlanEnv:
                     raise RuntimeError("Tried to play unavailable straight")
                 removed.append(card)
 
-            if seq == (11, 12, 0, 1, 2):
-                canon = (0, 1, 2, 11, 12)
-            else:
-                canon = seq
-            return Combo(kind="straight", ranks=canon)
+            return Combo(kind="straight", ranks=tuple(sorted(seq)))
 
         raise ValueError(f"Unsupported action kind: {kind}")
