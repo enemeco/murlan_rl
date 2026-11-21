@@ -1,4 +1,7 @@
 # Best-effort self-ping does not preserve data across restarts or redeploys.
+# For accepted-model persistence, follow GITHUB_MODEL_SETUP.md and set
+# MURLAN_GITHUB_SYNC=1 plus MURLAN_GITHUB_TOKEN in the Render dashboard.
+# Keep the token out of this file. GitHub saving is opt-in (default: disabled).
 services:
   - type: web
     name: murlan-rl

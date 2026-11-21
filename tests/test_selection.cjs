@@ -22,9 +22,32 @@ test('no move can be selected out of turn or after the match',()=>{
   assert.equal(matchAction({...state,done:true},['4C']),null);
 });
 test('exchange fallback requires the exact lowest card',()=>{
-  const exchange={...state,phase:'swap',legal_actions:[102],actions:[{id:102,kind:'swap_give',ranks:['4'],required_cards:['4C']}]};
-  assert.equal(matchAction(exchange,['4C']).id,102);
+  const exchange={...state,phase:'swap',legal_actions:[111],actions:[{id:111,kind:'swap_give',ranks:['4'],required_cards:['4C']}]};
+  assert.equal(matchAction(exchange,['4C']).id,111);
   assert.equal(matchAction(exchange,['4H']),null);
+});
+test('A-low Kolors extend through 14 cards and need two different aces',()=>{
+  const allRanks=['A','2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  for(let length=6;length<=14;length++){
+    const ranks=allRanks.slice(0,length);
+    const cards=ranks.map((r,i)=>r==='3'?'3S':r+(i===13?'D':'C'));
+    const id=101+length-6;
+    const long={...state,your_hand:cards,require_three_spades:true,
+      legal_actions:[id],actions:[{id,kind:'straight',ranks}]};
+    assert.equal(matchAction(long,[...cards].reverse()).id,id);
+    assert.equal(matchAction(long,cards.slice(1)),null);
+    assert.equal(matchAction({...long,legal_actions:[0]},cards),null);
+    if(length===14)assert.equal(matchAction(long,[...cards.slice(0,13),'AC']),null);
+  }
+});
+test('ambiguous 13-card selection uses the server action order and legal mask',()=>{
+  const high=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  const low=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  const cards=high.map(r=>r+'C');
+  const both={...state,your_hand:cards,legal_actions:[100,108],actions:[
+    {id:100,kind:'straight',ranks:high},{id:108,kind:'straight',ranks:low}]};
+  assert.equal(matchAction(both,[...cards].reverse()).id,100);
+  assert.equal(matchAction({...both,legal_actions:[108]},cards).id,108);
 });
 test('special low straight works in any selection order',()=>{
   const low={...state,legal_actions:[91],actions:[{id:91,kind:'straight',ranks:['A','2','3','4','5']}]};

@@ -88,13 +88,19 @@ def counts_by_rank(cards: List[int]) -> List[int]:
 
 
 def straight_primary_rank(seq: Tuple[int, ...]) -> int:
-    """End rank in Kolor order, independent of the stored/selected card order."""
+    """End rank in Kolor order; preserve action order for the ambiguous 13 cards.
+
+    A-2-...-K and 2-3-...-A have the same rank counts but different end ranks.
+    Live Combo objects retain their action's order to distinguish these plays.
+    """
+    if seq[:2] == (RANK_TO_I["A"], RANK_TO_I["2"]):
+        return seq[-1]
     canonical = tuple(sorted(seq))
-    if canonical == (0, 1, 2, 11, 12):  # A-2-3-4-5
-        return RANK_TO_I["5"]
+    if RANK_TO_I["A"] in canonical and RANK_TO_I["2"] in canonical and len(seq) < 13:
+        # A low ace in a shorter run, also accepting legacy canonical ordering.
+        return max(r for r in canonical if r not in (RANK_TO_I["A"], RANK_TO_I["2"]))
     if canonical[-1] == RANK_TO_I["2"]:
-        # In every remaining valid Kolor containing 2, it is the low/start
-        # card, not the high/end card. This includes the full 2-through-A run.
+        # The 2 is never the end card, including in the full A-through-A run.
         return canonical[-2]
     return canonical[-1]
 
@@ -124,8 +130,8 @@ class Combo:
         """Comparison key.
 
         - For single/pair/triple/quad: that rank
-        - For straight: its end rank in Kolor order. A-2-3-4-5 ends at 5;
-          runs starting at 2 end at their last card, from 6 through A.
+        - For straight: its end rank in Kolor order. Runs starting at A end
+          at 5 through A; runs starting at 2 end at 6 through A.
         """
         if self.kind == "straight":
             return straight_primary_rank(self.ranks)

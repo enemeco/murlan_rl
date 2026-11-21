@@ -12,7 +12,8 @@ for a in range(ACTION_DIM):
     if desc.kind == "pass":
         continue
     if desc.kind == "straight":
-        ACTION_COUNTS[a, list(desc.payload)] = 1
+        for rank_i in desc.payload:
+            ACTION_COUNTS[a, rank_i] += 1
         rank = straight_primary_rank(desc.payload)
     else:
         size = {"single": 1, "pair": 2, "triple": 3, "quad": 4, "swap_give": 1}[
@@ -21,6 +22,6 @@ for a in range(ACTION_DIM):
         ACTION_COUNTS[a, desc.payload[0]] = size
         rank = desc.payload[0]
     ACTION_FEATURES[a, 7:22] = ACTION_COUNTS[a] / 4.0
-    # Keep existing learned feature scaling; the new 13-card run is 13/12.
+    # Keep existing learned feature scaling; the new 14-card run is 14/12.
     ACTION_FEATURES[a, 22] = ACTION_COUNTS[a].sum() / 12.0
     ACTION_FEATURES[a, 23] = rank / 14.0

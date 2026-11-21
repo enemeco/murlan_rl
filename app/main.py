@@ -12,6 +12,7 @@ from .game_manager import GameManager, MurlanBot
 from .online_learning import OnlineLearner
 from .replay import ReplayStore
 from .keepalive import start_self_ping
+from .github_models import GitHubModelStore, GitHubSyncError
 from murlan.actions import ACTION_DIM
 from murlan.checkpoint import load_model, save_checkpoint
 
@@ -50,6 +51,15 @@ def create_app(model_path=None, replay_path=None, online=None):
     async def lifespan(app):
         torch.set_num_threads(int(os.getenv("MURLAN_TORCH_THREADS", "1")))
         replay = ReplayStore(replay_path)
+        model_store = GitHubModelStore.from_env()
+        if model_store:
+            try:
+                # Fetch main even when this container uses an older built image.
+                model_store.restore(model_path)
+            except GitHubSyncError as exc:
+                # Gameplay stays available. The learner retries restoration and
+                # pauses updates until it has the actual saved champion.
+                model_store.defer(exc)
         if seed_model and not Path(model_path).exists():
             default_seed = ROOT / "checkpoints/improved_policy.pt"
             if not default_seed.exists():
@@ -67,13 +77,15 @@ def create_app(model_path=None, replay_path=None, online=None):
         bot = MurlanBot(model_path)
         learner = (
             OnlineLearner(
-                bot, replay, eval_deals=int(os.getenv("MURLAN_EVAL_DEALS", "12"))
+                bot, replay, eval_deals=int(os.getenv("MURLAN_EVAL_DEALS", "12")),
+                model_store=model_store,
             )
             if enabled
             else None
         )
         app.state.manager = GameManager(bot, learner, replay)
         app.state.bot, app.state.learner, app.state.replay = bot, learner, replay
+        app.state.model_store = model_store
         pinger = start_self_ping()
         try:
             yield
@@ -148,6 +160,8 @@ def create_app(model_path=None, replay_path=None, online=None):
                 if learner and learner.error
                 else None
             ),
+            github_sync=(app.state.model_store.status() if app.state.model_store else
+                         {"enabled": False, "state": "disabled", "saved_version": None, "error": None}),
         )
 
     @app.get("/health")

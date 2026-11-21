@@ -9,13 +9,15 @@ from murlan.trajectory import rows_to_batch
 from murlan.training import imitate, teacher_examples
 from murlan.evaluation import evaluate, promotion_decision, summarize
 from murlan.checkpoint import save_checkpoint
+from .github_models import GitHubSyncError
 
 log = logging.getLogger(__name__)
 
 
 class OnlineLearner:
     def __init__(
-        self, bot, replay, min_hands=4, min_decisions=256, eval_deals=12, start=True
+        self, bot, replay, min_hands=4, min_decisions=256, eval_deals=12, start=True,
+        model_store=None,
     ):
         self.bot, self.replay = bot, replay
         self.min_hands, self.min_decisions, self.eval_deals = (
@@ -29,6 +31,8 @@ class OnlineLearner:
         self.status = "waiting"
         self.error = None
         self._thread = None
+        self.model_store = model_store
+        self._pending_promotion = None
         if start:
             self._thread = threading.Thread(
                 target=self._worker, daemon=True, name="murlan-learner"
@@ -61,6 +65,18 @@ class OnlineLearner:
         if not self._training.acquire(blocking=False):
             return None
         try:
+            if self.model_store and not self.model_store.restored:
+                self.status = "restoring"
+                if not self.model_store.can_retry():
+                    return None
+                try:
+                    restored, version = self.model_store.restore(self.bot.ckpt_path)
+                    self.bot.promote(restored, version)
+                except GitHubSyncError as exc:
+                    self.model_store.defer(exc)
+                    return None
+            if self._pending_promotion is not None:
+                return self._finish_promotion()
             model, version, fallback, policy_id = self.bot.snapshot()
             self.replay.mark_stale(version, policy_id)
             ids, rows = self.replay.pending(version, policy_id=policy_id)
@@ -115,10 +131,12 @@ class OnlineLearner:
             candidate_path = ckpt.with_name(ckpt.stem + ".candidate.pt")
             save_checkpoint(candidate_path, model, version=version, validation=details)
             if gate["promote"]:
-                # Save first so a failed disk write never silently changes the live bots.
-                save_checkpoint(ckpt, model, version=version + 1, validation=details)
-                self.bot.promote(model, version + 1)
-                self.status = "promoted"
+                # Freeze the exact accepted bytes across upload retries. Do not
+                # train again or promote until durable saving has been confirmed.
+                accepted_path = ckpt.with_name(ckpt.stem + ".accepted.pt")
+                save_checkpoint(accepted_path, model, version=version + 1, validation=details)
+                self._pending_promotion = (model, version, details, ids, accepted_path)
+                return self._finish_promotion()
             else:
                 self.status = "retained"
             self.replay.update_log(version, self.status, details)
@@ -127,3 +145,26 @@ class OnlineLearner:
             return details
         finally:
             self._training.release()
+
+    def _finish_promotion(self):
+        model, version, details, ids, accepted_path = self._pending_promotion
+        if self.model_store:
+            self.status = "saving"
+            if not self.model_store.can_retry():
+                return None
+            try:
+                self.model_store.publish(accepted_path)
+            except GitHubSyncError as exc:
+                self.model_store.defer(exc)
+                return None
+        # Local saving and live promotion happen only after the remote commit,
+        # when configured. A crash in between is recovered by startup restore.
+        save_checkpoint(self.bot.ckpt_path, model, version=version + 1, validation=details)
+        self.bot.promote(model, version + 1)
+        self.status = "promoted"
+        self.replay.update_log(version, self.status, details)
+        self.replay.mark_processed(ids)
+        self._pending_promotion = None
+        accepted_path.unlink(missing_ok=True)
+        self.error = None
+        return details

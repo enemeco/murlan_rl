@@ -9,7 +9,7 @@ RL-friendly:
 - turn-based (one player acts)
 
 Interpretation choices (easy to change):
-- Runs starting at 2 have 5..13 cards, up to 2-3-...-K-A; also allow A-2-3-4-5.
+- Runs starting at 2 have 5..13 cards; runs starting at A have 5..14, up to A-2-...-K-A.
 - A straight response must be the immediately following sequence of equal length.
 - Deal all 54 cards round-robin (two players get 14).
 - If previous 1st has no card in 3..10 to swap, they give their lowest card.
@@ -124,7 +124,7 @@ class MurlanEnv:
             trick_size = np.array([0.0], dtype=np.float32)
             trick_val = np.array([0.0], dtype=np.float32)
         else:
-            # Retain legacy scaling for checkpoint compatibility; 13 cards is 13/12.
+            # Retain legacy scaling for checkpoint compatibility; 14 cards is 14/12.
             trick_size = np.array([self.current_combo.size / 12.0], dtype=np.float32)
             trick_val = np.array(
                 [self.current_combo.primary_rank / 14.0], dtype=np.float32
@@ -231,7 +231,8 @@ class MurlanEnv:
                 mask[a] = True
 
         def can_play_straight(seq: Tuple[int, ...]) -> bool:
-            return all(counts[r] >= 1 for r in seq)
+            # The full A-to-A Kolor requires two physical aces.
+            return all(counts[r] >= n for r, n in Counter(seq).items())
 
         # lead
         if self.current_combo is None:
@@ -568,8 +569,7 @@ class MurlanEnv:
         if cards is not None:
             for card in cards:
                 self.hands[p].remove(card)
-            ranks = tuple(sorted(desc.payload)) if kind == "straight" else desc.payload
-            return Combo(kind=kind, ranks=ranks)
+            return Combo(kind=kind, ranks=desc.payload)
 
         if kind in {"single", "pair", "triple", "quad"}:
             rank_i = desc.payload[0]
@@ -613,6 +613,6 @@ class MurlanEnv:
                     raise RuntimeError("Tried to play unavailable straight")
                 removed.append(card)
 
-            return Combo(kind="straight", ranks=tuple(sorted(seq)))
+            return Combo(kind="straight", ranks=seq)
 
         raise ValueError(f"Unsupported action kind: {kind}")

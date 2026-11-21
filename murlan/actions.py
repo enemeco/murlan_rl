@@ -15,7 +15,7 @@ Action IDs:
 Straight patterns:
   - all sequences within ranks 3..A (inclusive) with length 5..12
   - all sequences starting at 2, from 2-3-4-5-6 up to 2-3-...-K-A (5..13 cards)
-  - plus special low straight A-2-3-4-5
+  - all sequences starting at A, from A-2-3-4-5 up to A-2-...-K-A (5..14 cards)
 
 Five-card order: A-2-3-4-5, 2-3-4-5-6, 3-4-5-6-7, ..., 10-J-Q-K-A.
 A straight can only be beaten by the immediately following one of equal length.
@@ -68,6 +68,9 @@ def _build_straights() -> List[Tuple[int, ...]]:
     # checkpoint.load_model migrates the old policy's shifted swap outputs.
     for length in range(5, 14):
         straights.append((RANK_TO_I["2"], *range(length - 1)))
+    # Preserve all previous IDs. The 14-card run uses two distinct aces.
+    for length in range(6, 15):
+        straights.append((RANK_TO_I["A"], RANK_TO_I["2"], *range(length - 2)))
     return straights
 
 

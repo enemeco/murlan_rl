@@ -1,5 +1,6 @@
 """House-rule regressions: only the next Kolor can answer, including low 2."""
 from copy import deepcopy
+from collections import Counter
 import hashlib
 
 import numpy as np
@@ -38,20 +39,22 @@ TWO_LOW_RUNS = [
 ]
 
 
-@pytest.fixture(params=[100, 101])
+ACE_LOW_RUNS = [' '.join(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'][:n])
+                for n in range(5, 15)]
+
+
+@pytest.fixture(params=[100, 101, 109])
 def legacy_checkpoint(request, tmp_path):
-    """Both original weights and a model saved after the five-card-only fix."""
-    ckpt = torch.load('checkpoints/improved_policy.pt', weights_only=True)
-    if request.param == 101:
-        for key in ('pi.weight', 'pi.bias'):
-            source = ckpt['model'][key]
-            # A distinct learned row verifies that loading preserves 2-to-6.
-            new_row = torch.full_like(source[:1], 0.123)
-            ckpt['model'][key] = torch.cat([source[:92], new_row, source[92:]])
-        ckpt['schema_version'] = 3
-        ckpt['action_dim'] = 101
-    else:
-        ckpt['schema_version'] = 2
+    """Old schemas, even if GitHub has already replaced the bundled checkpoint."""
+    model, _ = load_model('checkpoints/improved_policy.pt')
+    ckpt = dict(model=model.state_dict(), obs_dim=model.obs_dim, hidden=model.hidden,
+                schema_version={100: 2, 101: 3, 109: 4}[request.param],
+                action_dim=request.param)
+    for key in ('pi.weight', 'pi.bias'):
+        source = ckpt['model'][key]
+        ckpt['model'][key] = torch.cat([source[:request.param - 8], source[SWAP_BASE:]])
+        if request.param > 100:
+            ckpt['model'][key][92:request.param - 8] = 0.123
     path = tmp_path / f'legacy-{request.param}.pt'
     torch.save(ckpt, path)
     return path, ckpt
@@ -113,7 +116,7 @@ def test_every_two_low_run_is_legal_as_an_opening_and_consumes_exact_cards(manua
     assert env.legal_mask(0)[action]
     env.step(action, cards=selected if manual else None)
     assert env.hands[0] == [52]
-    assert env.current_combo == Combo('straight', tuple(sorted(seq)))
+    assert env.current_combo == Combo('straight', seq)
     assert env.current_combo.primary_rank == RANK_TO_I[run.split()[-1]]
     assert not env.require_three_spades
     assert int(env.played_counts.sum()) == len(seq)
@@ -148,14 +151,15 @@ def test_long_two_low_runs_only_accept_the_next_equal_length_run(current, succes
     assert legal_kolors(env) == ({kolor_action(successor)} if successor else set())
 
 
-def test_no_duplicate_joker_or_high_two_wraparound_straights():
-    assert len(STRAIGHTS) == len(set(STRAIGHTS)) == 46
+def test_no_duplicate_patterns_jokers_or_high_two_wraparound_straights():
+    assert len(STRAIGHTS) == len(set(STRAIGHTS)) == 55
     for seq in STRAIGHTS:
-        assert 5 <= len(seq) <= 13
-        assert len(seq) == len(set(seq))
+        assert 5 <= len(seq) <= 14
+        repeated = {r: n for r, n in Counter(seq).items() if n > 1}
+        assert repeated == ({RANK_TO_I['A']: 2} if len(seq) == 14 else {})
         assert not set(seq) & {RANK_TO_I['BJ'], RANK_TO_I['RJ']}
         if RANK_TO_I['2'] in seq:
-            assert seq in [ranks(run) for run in TWO_LOW_RUNS] + [ranks('A 2 3 4 5')]
+            assert seq in [ranks(run) for run in TWO_LOW_RUNS + ACE_LOW_RUNS]
 
 
 def test_every_ace_ending_run_has_no_equal_length_kolor_response():
@@ -249,7 +253,7 @@ def test_improved_checkpoint_migration_preserves_old_action_outputs(tmp_path, le
     saved = tmp_path / 'migrated.pt'
     save_checkpoint(saved, model, version=4)
     restored, metadata = load_model(saved)
-    assert metadata['schema_version'] == 4 and metadata['action_dim'] == 109
+    assert metadata['schema_version'] == 5 and metadata['action_dim'] == 118
     assert metadata['version'] == 4
     torch.testing.assert_close(restored(x)[0], model(x)[0])
 
@@ -291,3 +295,105 @@ def test_old_optimizer_resume_requests_weight_migration(tmp_path, monkeypatch, c
         train_selfplay.main()
     assert error.value.code == 2
     assert 'Use --init instead of --resume' in capsys.readouterr().err
+
+
+def physical_run(seq):
+    used = Counter()
+    cards = []
+    for rank in seq:
+        cards.append(THREE_OF_SPADES_ID if rank == 0 else 4 * rank + used[rank])
+        used[rank] += 1
+    return cards
+
+
+@pytest.mark.parametrize('run', ACE_LOW_RUNS)
+@pytest.mark.parametrize('manual', [False, True])
+def test_all_ace_low_runs_consume_exact_cards_and_preserve_comparison(manual, run):
+    seq = ranks(run)
+    selected = physical_run(seq)
+    # Keep physical hands within the maximum deal size (14).
+    env = position(selected + ([52] if len(selected) < 14 else []))
+    env.require_three_spades = True
+    action = kolor_action(run)
+    assert env.legal_mask(0)[action]
+    _, _, _, _, info = env.step(action, cards=list(reversed(selected)) if manual else None)
+    assert env.hands[0] == ([52] if len(selected) < 14 else [])
+    assert info.played.ranks == seq
+    assert info.played.primary_rank == RANK_TO_I[run.split()[-1]]
+    assert int(env.played_counts.sum()) == len(seq)
+    assert sum(map(len, env.hands)) + int(env.played_counts.sum()) == 54
+    counts = tuple(Counter(seq)[r] for r in range(15))
+    np.testing.assert_array_equal(ACTION_COUNTS[action], counts)
+    assert minimum_plays(counts) == 1
+
+
+@pytest.mark.parametrize('run', ACE_LOW_RUNS)
+def test_each_ace_low_run_accepts_only_the_next_equal_length_run(run):
+    env = position([4 * r for r in range(13)] + [45])
+    env.current_combo = Combo('straight', ranks(run))
+    length = len(run.split())
+    expected = {kolor_action(TWO_LOW_RUNS[length - 5])} if length <= 13 else set()
+    assert legal_kolors(env) == expected
+
+
+def test_full_ace_to_ace_requires_two_distinct_physical_aces():
+    action = kolor_action(ACE_LOW_RUNS[-1])
+    seq = ranks(ACE_LOW_RUNS[-1])
+    one_ace = physical_run(seq[:-1])
+    env = position(one_ace + [52])
+    before = deepcopy(env.__dict__)
+    assert not env.legal_mask(0)[action]
+    with pytest.raises(ValueError, match='Illegal action'):
+        env.step(action)
+    assert env.hands == before['hands'] and env.current_combo == before['current_combo']
+    env = position(physical_run(seq))
+    duplicate = one_ace + [44]
+    before = deepcopy(env.__dict__)
+    with pytest.raises(ValueError, match='selected twice'):
+        env.step(action, cards=duplicate)
+    assert env.hands == before['hands']
+    assert env.played_counts.sum() == 0
+
+
+def test_thirteen_card_ace_low_and_ace_high_remain_distinguishable():
+    low, high = ranks(ACE_LOW_RUNS[-2]), ranks(TWO_LOW_RUNS[-1])
+    assert Counter(low) == Counter(high)
+    assert Combo('straight', low).primary_rank == RANK_TO_I['K']
+    assert Combo('straight', high).primary_rank == RANK_TO_I['A']
+    for seq, end in [(low, 'K'), (high, 'A')]:
+        for manual in (False, True):
+            cards = physical_run(seq)
+            env = position(cards + [52])
+            env.step(STRAIGHT_BASE + STRAIGHTS.index(seq), cards=list(reversed(cards)) if manual else None)
+            assert env.current_combo.primary_rank == RANK_TO_I[end]
+
+
+def test_http_api_plays_fourteen_cards_with_two_aces_and_records_one_move(tmp_path, monkeypatch):
+    app = create_app(model_path='checkpoints/improved_policy.pt',
+                     replay_path=str(tmp_path / 'replay.db'), online=False)
+    with TestClient(app) as client:
+        state = client.post('/api/new', json={}).json()
+        gid = state['game_id']
+        manager = app.state.manager
+        monkeypatch.setattr(manager, '_autoplay', lambda *args: None)
+        session = manager.games[gid]
+        seq = ranks(ACE_LOW_RUNS[-1])
+        selected = physical_run(seq)
+        session.env = position(selected)
+        session.env.require_three_spades = True
+        state = client.get(f'/api/state/{gid}').json()
+        action = kolor_action(ACE_LOW_RUNS[-1])
+        option = next(a for a in state['actions'] if a['id'] == action)
+        assert option['ranks'].count('A') == 2 and len(option['ranks']) == 14
+        from app.game_manager import card_to_str
+        cards = [card_to_str(c) for c in reversed(selected)]
+        result = client.post(f'/api/act/{gid}', json=dict(
+            action=action, revision=state['revision'], request_id='ace-to-ace-14', cards=cards))
+        assert result.status_code == 200
+        body = result.json()
+        assert body['your_hand'] == [] and body['finished'][0]
+        played = next(e for e in body['events'] if e['id'] == state['revision'] + 1)
+        assert played['cards'] == cards and len(set(cards)) == 14
+        assert body['trick']['size'] == 14
+        assert body['trick']['primary_rank'] == RANK_TO_I['A']
+        assert client.get('/api/learning').json()['human_moves'] == 1

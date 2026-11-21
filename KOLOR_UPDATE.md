@@ -1,6 +1,6 @@
 # Kolor rule correction
 
-Install this complete replacement patch over the improved Murlan project with the manual card selection interface. It includes the consecutive-response fix and the full family of Kolors starting at 2; it works whether or not you installed the first five-card-only patch.
+Install the current `murlan_github_learning_update.zip` over the improved Murlan project with the manual card selection interface. It includes the consecutive-response fix, every Kolor starting at 2, every Kolor starting at A through the other A, and the GitHub model persistence feature. It works whether or not you installed the earlier Kolor patches.
 
 ## Rules
 
@@ -30,22 +30,45 @@ The 2-low rule applies to **every length from 5 to 13 cards**. Examples:
 | 2-3-4-5-6-7-8-9-10-J-Q-K | 3-4-5-6-7-8-9-10-J-Q-K-A |
 | 2-3-4-5-6-7-8-9-10-J-Q-K-A | None |
 
-All consecutive windows of 5–13 cards along 2-3-4-5-6-7-8-9-10-J-Q-K-A are included, plus the existing A-2-3-4-5. Under the same-length rule, **any Kolor ending in A has no higher Kolor response**; 10-J-Q-K-A is the five-card example. The existing katërshe/quad rule is unchanged: a quad can beat a Kolor.
+The A-low rule applies to **every length from 5 to 14 cards**:
+
+| Kolor | Cards | Only possible Kolor response |
+| --- | --- | --- |
+| A-2-3-4-5 | 5 | 2-3-4-5-6 |
+| A-2-3-4-5-6 | 6 | 2-3-4-5-6-7 |
+| A-2-3-4-5-6-7-8-9-10-J | 11 | 2-3-4-5-6-7-8-9-10-J-Q |
+| A-2-3-4-5-6-7-8-9-10-J-Q-K | 13 | 2-3-4-5-6-7-8-9-10-J-Q-K-A |
+| A-2-3-4-5-6-7-8-9-10-J-Q-K-A | 14 | None |
+
+The 14-card run requires **two different physical aces**, such as AC and AD. One card cannot be selected twice. Every consecutive window of 5–14 cards along A-2-3-4-5-6-7-8-9-10-J-Q-K-A is available; the sequence stops at that second A. Jokers are not allowed in Kolors, and a run cannot end in 2 or wrap from K-A to 2.
+
+Under the same-length rule, **any Kolor ending in A has no higher Kolor response**; 10-J-Q-K-A is the five-card example. The existing katërshe/quad rule is unchanged: a quad can beat a Kolor.
+
+The 13-card A-2-...-K and 2-3-...-A use the same set of ranks. The engine retains the declared sequence so the former ends in K and the latter in A. Manual selection uses the higher interpretation when both are legal, regardless of the order in which cards were clicked.
+
+## Online rule check
+
+Checked on 21 November 2026:
+
+- [Murlan Arena, Playable Combinations](https://www.murlanarena.com/) explicitly gives the full A-2-3-4-5-6-7-8-9-10-J-Q-K-A example and allows runs of five or more cards.
+- [Visi Mobile Games, Rregullat e Murlanit](https://www.visixplay.com/murlan/rules.php?lang=al) allows low A and 2 in runs and specifies the immediately-next, equal-length response rule.
+
+Published implementations differ on other rules. This update applies the requested A-starting sequences to this project's existing rule variant.
 
 ## Files that implement the correction
 
-- `murlan/actions.py`: generates every 2-low run using `(12, *range(length - 1))` for lengths 5 through 13. These are internal indices; the general card order for singles and groups is still 3, 4, ..., A, 2.
-- `murlan/cards.py`: ranks every 2-low run by its ending card, ignoring the 2 when finding that end. A-2-3-4-5 keeps its special low ranking.
-- `murlan/env.py`: replaces the higher-rank comparison with `straight_primary_rank(seq) == cur_val + 1`. The same legal mask governs human moves, robot moves, and training.
-- `murlan/checkpoint.py`: migrates both 100-action and 101-action checkpoints into the 109-action model. Existing straight IDs remain the same. Nine 2-low actions occupy IDs 92–100; the eight swap actions move to 101–108. New outputs start from related existing straights; an existing learned 2-to-6 output is preserved.
-- `murlan/features.py`: retains the original length-feature scaling so migrated weights keep their input meanings. The 13-card value is 13/12 and is not clipped.
+- `murlan/actions.py`: includes all 55 straight patterns. Existing straight IDs stay fixed. A-2-3-4-5 retains ID 91, all 2-low runs occupy IDs 92–100, and new A-low lengths 6–14 occupy IDs 101–109.
+- `murlan/cards.py`: compares sequences by their actual ending rank, distinguishing the two 13-card interpretations.
+- `murlan/env.py`: enforces `straight_primary_rank(seq) == cur_val + 1`, equal lengths, and rank multiplicity (two aces for 14 cards). Both manual and automatic plays retain sequence order. The same legal mask governs human moves, robot moves, and training.
+- `murlan/checkpoint.py`: migrates 100-, 101- and 109-action checkpoints into the 118-action model. The eight swap actions move to 110–117. Existing action outputs are preserved; new outputs start from related straights.
+- `murlan/features.py`: counts both aces and retains the original length-feature scaling for existing weights. A 14-card value is 14/12 and is not clipped. The strategic baseline also uses these corrected counts when planning its hand.
 - `app/replay.py`: retains old human records but excludes their old action masks from new training. The updated policy fingerprint also causes old PPO hands to be retired rather than reused under different rules.
 - `train_selfplay.py`: prevents resuming an old optimizer with incompatible output dimensions. Use `--init` for old checkpoints; new checkpoints support `--resume` as usual.
 - `static/index.html`: explains the corrected rules in Albanian.
 
 ## Apply to your project
 
-1. Extract `murlan_kolor_fix.zip` and copy its contents into your existing repository root, replacing the matching files. Use the folder containing `app`, `murlan`, `static`, and `.git`.
+1. Extract the newly downloaded `murlan_github_learning_update.zip` and copy its contents into your existing repository root, replacing the matching files. Use the folder containing `app`, `murlan`, `static`, and `.git`.
 2. Copy **all** supplied files together. Editing only the action list would cause old model dimensions to mismatch.
 3. Keep your checkpoint files. They load automatically through the migration; you do not need to delete your model or replay database. This preserves the learned weights as a starting point, but those weights have not been retrained or benchmarked for the corrected rules.
 4. Commit and push from your repository folder:
@@ -53,10 +76,11 @@ All consecutive windows of 5–13 cards along 2-3-4-5-6-7-8-9-10-J-Q-K-A are inc
 ```powershell
 git add .
 git commit -m "Correct Kolor sequence rules and migrate saved policies"
+git pull --rebase origin main
 git push origin main
 ```
 
-5. Deploy the latest commit in Render. Restarting the application starts fresh game sessions; refresh the page and begin a new match. No environment-variable changes are needed for this patch.
+5. Deploy the latest commit in Render. Restarting the application starts fresh game sessions; refresh the page and begin a new match. Existing GitHub saving settings remain valid. To enable that feature for the first time, follow `GITHUB_MODEL_SETUP.md`.
 
 For optional offline training from an existing model, use a new output directory:
 
@@ -73,6 +97,6 @@ python -m pytest -q
 node --test tests/test_selection.cjs
 ```
 
-Regression coverage includes every 2-low run from 5 through 13 cards, exact card selection and the 3-spades opening constraint, a 13-card move through the HTTP API, consecutive equal-length responses, all ace-ending runs, both old checkpoint schemas, legacy replay isolation, complete games, and finite learning updates.
+Regression coverage includes every 2-low run (5–13 cards), every A-low run (5–14), exact physical card counts, the 3-spades opening constraint, 13- and 14-card HTTP plays, immediate equal-length responses, all ace-ending runs, three older checkpoint schemas, legacy replay isolation, GitHub restore and save across schema migration, complete games, and finite learning updates.
 
-Validation completed: 94 Python tests and 7 JavaScript tests passed.
+Validation completed: 153 Python tests and 9 JavaScript tests passed.

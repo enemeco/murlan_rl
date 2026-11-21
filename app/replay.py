@@ -103,8 +103,8 @@ class ReplayStore:
         # Bounded random sample across the full history, including unfinished hands.
         rng = np.random.default_rng(seed)
         with self.connect() as db:
-            # Legacy masks/actions describe the 100- or 101-action Kolor rules.
-            # Retain that history, but train only on the current 109-action schema.
+            # Legacy masks/actions describe the 100-, 101- or 109-action rules.
+            # Retain that history, but train only on the current 118-action schema.
             ids = [r[0] for r in db.execute(
                 "SELECT id FROM actions WHERE human=1 AND json_array_length(legal)=?",
                 (ACTION_DIM,),

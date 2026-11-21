@@ -9,7 +9,7 @@ from .env import MurlanEnv
 from .model import PolicyValueNet
 from .actions import ACTION_DIM, STRAIGHT_BASE, STRAIGHTS, SWAP_BASE, SWAP_N, action_desc
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def policy_fingerprint(model):
@@ -36,10 +36,10 @@ def load_model(path, device="cpu"):
         old = dict(old, **{"backbone.0.weight": weight})
     old_action_dim = old["pi.weight"].shape[0]
     if old_action_dim != ACTION_DIM:
-        if old_action_dim not in (100, 101) or ACTION_DIM != 109:
+        if old_action_dim not in (100, 101, 109) or ACTION_DIM != 118:
             raise ValueError(f"Unsupported action schema: {old_action_dim}")
-        # Accept both the original model and the first five-card-only fix.
-        # Existing straight IDs stay put; the eight swap outputs move to 101..108.
+        # Accept original weights and both previous Kolor fixes.
+        # Existing straight IDs stay put; the eight swap outputs move to 110..117.
         # Warm-start new outputs from related runs; rebuild shared action features.
         old = dict(old)
         old_swap_base = old_action_dim - SWAP_N
@@ -49,8 +49,14 @@ def load_model(path, device="cpu"):
             expanded[:old_swap_base] = source[:old_swap_base]
             expanded[SWAP_BASE:] = source[old_swap_base:]
             for action in range(old_swap_base, SWAP_BASE):
-                length = len(action_desc(action).payload)
-                if length == 5:
+                seq = action_desc(action).payload
+                length = len(seq)
+                if seq[:2] == (11, 12):
+                    # New A-low actions follow every 2-low action. These peers
+                    # have already been copied/migrated even for 100-action files.
+                    peer = STRAIGHT_BASE + STRAIGHTS.index((12, *range(min(length, 13) - 1)))
+                    expanded[action] = expanded[peer]
+                elif length == 5:
                     low_ace = STRAIGHT_BASE + STRAIGHTS.index((11, 12, 0, 1, 2))
                     expanded[action] = (source[STRAIGHT_BASE] + source[low_ace]) / 2
                 else:

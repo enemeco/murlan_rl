@@ -135,11 +135,13 @@ async function refreshLearning() {
   try {
     const s=await api('/api/learning');
     $('humanMoves').textContent=s.human_moves.toLocaleString();$('completedHands').textContent=s.completed_hands.toLocaleString();
-    const labels={waiting:'Në pritje të lojërave të reja',training:'Po trajnohet një version i ri',evaluating:'Versioni i ri po testohet',promoted:'Robotët u përditësuan',retained:'Testimi përfundoi. Vazhdojmë me versionin e mëparshëm.',disabled:'Trajnimi automatik është çaktivizuar',error:'Trajnimi nuk përfundoi. Loja mund të vazhdojë.'};
+    const labels={waiting:'Në pritje të lojërave të reja',training:'Po trajnohet një version i ri',evaluating:'Versioni i ri po testohet',saving:'Po ruhet përmirësimi i ri',restoring:'Po ngarkohet versioni i fundit i robotëve',promoted:'Robotët u përditësuan',retained:'Testimi përfundoi. Vazhdojmë me versionin e mëparshëm.',disabled:'Trajnimi automatik është çaktivizuar',error:'Trajnimi nuk përfundoi. Loja mund të vazhdojë.'};
     $('learningStatus').textContent=game&&!game.learning_enabled?'Lëvizjet e kësaj loje nuk ruhen':labels[s.phase]||'Në pritje';
-    const active=['training','evaluating'].includes(s.phase);$('learningDot').className=active?'active':'';
+    const active=['training','evaluating','saving','restoring'].includes(s.phase);$('learningDot').className=active?'active':'';
     $('learningProgress').style.width=`${active?75:Math.min(100,100*s.pending_hands/Math.max(1,s.min_hands))}%`;
     $('learningDetail').textContent=s.error?'Versioni i ri nuk u përgatit dot. Robotët vazhdojnë me versionin aktual.':game&&!game.learning_enabled?'Këtë lojë mund ta luash pa ruajtur lëvizjet e tua.':!s.enabled?'Lëvizjet ruhen, por trajnimi automatik nuk është aktiv.':`${s.pending_hands} ${s.pending_hands===1?'dorë në pritje':'duar në pritje'} · ${s.promotions} përditësime. Trajnimi nis kur mblidhen mjaftueshëm lëvizje.`;
+    if(s.phase==='saving')$('learningDetail').textContent=s.github_sync?.error?'Përmirësimi e kaloi testimin, por ende nuk është ruajtur. Do të provojmë sërish.':'Përmirësimi e kaloi testimin. Po e ruajmë për lojërat e ardhshme.';
+    if(s.phase==='restoring')$('learningDetail').textContent='Trajnimi do të vazhdojë sapo të ngarkohet versioni i ruajtur. Ndërkohë, mund të luash.';
   } catch { /* Gameplay does not depend on the training-status request. */ }
 }
 function updateModeHelp() { $('modeHelp').textContent=$('modeSelect').value==='learn'?'Robotët provojnë herë pas here lëvizje të ndryshme.':'Robotët zgjedhin lëvizjen që vlerësojnë si më të mirën.'; }

@@ -66,7 +66,7 @@ def test_legacy_checkpoint_migration_preserves_policy_exactly():
         )
     expected = torch.nn.functional.linear(x, weights["pi.weight"], weights["pi.bias"])
     logits = model(obs)[0]
-    # Nine 2-low Kolors are inserted before the original eight swap actions.
+    # Additional 2-low and A-low Kolors precede the original eight swap actions.
     preserved = torch.cat([logits[:, :92], logits[:, SWAP_BASE:]], dim=1)
     torch.testing.assert_close(preserved, expected, atol=1e-5, rtol=1e-5)
     torch.testing.assert_close(logits[:, 92], (expected[:, 55] + expected[:, 91]) / 2,
